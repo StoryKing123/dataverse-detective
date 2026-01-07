@@ -118,23 +118,23 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       {/* Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-gray-900">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
             <LayoutGrid className="h-4 w-4 text-violet-600 dark:text-violet-400" />
           </div>
           <span className="text-lg font-semibold">
             <span className="text-violet-600 dark:text-violet-400">Dataverse</span>{" "}
-            <span className="text-gray-900 dark:text-white">X-Ray</span>
+            <span className="text-foreground">X-Ray</span>
           </span>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          className="text-muted-foreground hover:text-foreground"
         >
           <AnimatePresence mode="wait">
             {theme === "light" ? (
@@ -164,10 +164,10 @@ function App() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="flex w-[400px] shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <aside className="flex w-[400px] shrink-0 flex-col border-r border-border bg-background">
           <div className="p-4">
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Table Search
               </span>
               <Badge variant="secondary" className="h-5 min-w-[20px] justify-center px-1.5 text-[10px]">
@@ -175,7 +175,7 @@ function App() {
               </Badge>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Filter by name..."
                 value={searchQuery}
@@ -203,21 +203,21 @@ function App() {
                     className={cn(
                       "group relative flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition-all duration-200",
                       isSelected
-                        ? "bg-violet-50 dark:bg-violet-900/20"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        ? "bg-accent"
+                        : "hover:bg-accent/50"
                     )}
                   >
                     <span
                       className={cn(
                         "text-sm font-medium transition-colors",
                         isSelected
-                          ? "text-violet-700 dark:text-violet-300"
-                          : "text-gray-900 dark:text-gray-100"
+                          ? "text-accent-foreground"
+                          : "text-foreground"
                       )}
                     >
                       {table.displayName}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                    <span className="text-xs text-muted-foreground">
                       {table.logicalName}
                     </span>
                     {table.isCustomEntity && (
@@ -267,7 +267,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.4, type: "spring" }}
-        className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg dark:bg-gray-800"
+        className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card text-card-foreground shadow-sm"
       >
         <LayoutGrid className="h-10 w-10 text-violet-500" />
       </motion.div>
@@ -276,7 +276,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.4 }}
-        className="mb-3 text-3xl font-bold text-gray-900 dark:text-white"
+        className="mb-3 text-3xl font-bold text-foreground"
       >
         Entity Metadata Explorer
       </motion.h1>
@@ -285,7 +285,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
-        className="mb-10 max-w-md text-center text-gray-500 dark:text-gray-400"
+        className="mb-10 max-w-md text-center text-muted-foreground"
       >
         Select a table from the sidebar to inspect its schema, verify data types, and access deep links to Dynamics 365 views.
       </motion.p>
@@ -296,19 +296,19 @@ function EmptyState({ tableCount }: { tableCount: number }) {
         transition={{ delay: 0.4, duration: 0.4 }}
         className="flex gap-4"
       >
-        <div className="flex flex-col items-center rounded-xl bg-white px-10 py-5 shadow-md dark:bg-gray-800">
-          <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
+          <span className="text-2xl font-bold text-foreground">
             {tableCount}
           </span>
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Tables Indexed
           </span>
         </div>
-        <div className="flex flex-col items-center rounded-xl bg-white px-10 py-5 shadow-md dark:bg-gray-800">
-          <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
+          <span className="text-2xl font-bold text-foreground">
             Instant
           </span>
-          <span className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Search
           </span>
         </div>
@@ -344,15 +344,15 @@ function TableDetail({
       className="glass-effect h-full overflow-y-auto p-6"
     >
       {/* 表头信息卡片 */}
-      <div className="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+      <div className="mb-6 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="mb-1 text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="mb-1 text-2xl font-bold text-foreground">
               {table.displayName}
             </h2>
             <button
               onClick={() => copyToClipboard(table.logicalName, "logicalName")}
-              className="group flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="group flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <span className="font-mono">{table.logicalName}</span>
               {copiedField === "logicalName" ? (
@@ -391,18 +391,18 @@ function TableDetail({
       </div>
 
       {/* 列信息 */}
-      <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+      <div className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-foreground">
               Columns
             </h3>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-muted-foreground">
               {filteredColumns.length} visible
             </span>
           </div>
           <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search columns..."
               value={columnSearch}
@@ -413,25 +413,25 @@ function TableDetail({
         </div>
 
         {/* 列表格 */}
-        <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <tr className="border-b border-border bg-muted">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Display Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Logical Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Type
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Requirement
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-border">
               <AnimatePresence mode="popLayout">
                 {filteredColumns.map((column, index) => (
                   <motion.tr
@@ -440,26 +440,26 @@ function TableDetail({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15, delay: index * 0.02 }}
-                    className="group transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    className="group transition-colors hover:bg-muted/50"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-gray-900 dark:text-white">
+                        <span className="font-medium text-foreground">
                           {column.displayName}
                         </span>
                         {column.isPrimaryKey && (
-                          <Link2 className="h-3.5 w-3.5 text-gray-400" />
+                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
+                      <span className="font-mono text-sm text-muted-foreground">
                         {column.logicalName}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-violet-600 dark:text-violet-400">
+                        <span className="font-medium text-foreground">
                           {column.type}
                         </span>
                         {column.maxLength && (
@@ -468,7 +468,7 @@ function TableDetail({
                           </Badge>
                         )}
                         {column.optionCount && (
-                          <button className="flex items-center gap-0.5 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+                          <button className="flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/80">
                             {column.optionCount} Options
                             <ChevronRight className="h-3 w-3" />
                           </button>

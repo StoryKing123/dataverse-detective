@@ -3,28 +3,28 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2",
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+          "border-transparent bg-primary text-primary-foreground",
         secondary:
-          "border-transparent bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+          "border-transparent bg-secondary text-secondary-foreground",
         destructive:
-          "border-transparent bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+          "border-transparent bg-destructive text-destructive-foreground",
         outline:
-          "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400",
+          "border-border bg-transparent text-foreground",
         success:
-          "border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+          "border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
         warning:
-          "border-transparent bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+          "border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-300",
         system:
-          "border-red-200 bg-transparent text-red-500 dark:border-red-800 dark:text-red-400",
+          "border-destructive/30 bg-transparent text-destructive",
         required:
-          "border-transparent bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+          "border-transparent bg-orange-500/10 text-orange-700 dark:text-orange-300",
         optional:
-          "border-transparent bg-transparent text-gray-400 dark:text-gray-500",
+          "border-border bg-transparent text-muted-foreground",
       },
     },
     defaultVariants: {
@@ -43,4 +43,4 @@ function Badge({ className, variant, ...props }: BadgeProps) {
   )
 }
 
-export { Badge, badgeVariants }
+export { Badge }
