@@ -42,10 +42,22 @@ export interface DataverseAttribute {
   AttributeOf: string | null
   // OptionSet 相关字段（仅 Picklist/State/Status 类型）
   OptionSet?: {
-    Options?: Array<{ Value: number; Label: { UserLocalizedLabel: { Label: string } } }>
+    Options?: Array<{
+      Value: number
+      Label?: {
+        UserLocalizedLabel?: { Label: string } | null
+        LocalizedLabels?: Array<{ Label: string }>
+      } | null
+    }>
   }
   GlobalOptionSet?: {
-    Options?: Array<{ Value: number; Label: { UserLocalizedLabel: { Label: string } } }>
+    Options?: Array<{
+      Value: number
+      Label?: {
+        UserLocalizedLabel?: { Label: string } | null
+        LocalizedLabels?: Array<{ Label: string }>
+      } | null
+    }>
   }
 }
 

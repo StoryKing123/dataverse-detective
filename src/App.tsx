@@ -1,10 +1,13 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
 	  Search,
 	  Moon,
 	  Sun,
 	  LayoutGrid,
+	  ChevronRight,
+	  Copy,
+	  Loader2,
 	} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +18,7 @@ import type { TableEntity, TableColumn, Theme } from "./types"
 import { useDataverse } from "@/hooks/useDataverse"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { buildViewUrl, buildDataverseEditUrl } from "@/services/url.utils"
-import { getEnvironmentId } from "@/services/dataverse.service"
+import { fetchChoiceOptions, getEnvironmentId } from "@/services/dataverse.service"
 
 function App() {
   // 主题状态
@@ -341,11 +344,71 @@ function TableDetail({
   columnError,
 	}: TableDetailProps) {
     const [dataverseEditError, setDataverseEditError] = useState<string | null>(null)
+    const [expandedChoiceColumns, setExpandedChoiceColumns] = useState<Set<string>>(() => new Set())
+    const [choiceOptionsState, setChoiceOptionsState] = useState<
+      Record<string, { status: "idle" | "loading" | "success" | "error"; options: Array<{ value: number; label: string }>; error: string | null }>
+    >({})
+    // 跟踪正在进行的请求，避免重复加载
+    const loadingRequestsRef = useRef<Set<string>>(new Set())
 
 	  const primaryKey = useMemo(() => {
 	    const pk = table.columns.find((c) => c.isPrimaryKey)?.logicalName
 	    return pk ?? "—"
 	  }, [table.columns])
+
+    const isChoiceType = (type: string) =>
+      type === "Picklist" || type === "State" || type === "Status" || type === "MultiSelectPicklist"
+
+    const ensureChoiceOptionsLoaded = async (column: TableColumn) => {
+      if (!isChoiceType(column.type)) return
+      if (column.options?.length) return
+
+      // 使用 ref 检查是否已经在加载中
+      if (loadingRequestsRef.current.has(column.logicalName)) {
+        return
+      }
+
+      // 检查状态
+      const currentState = choiceOptionsState[column.logicalName]
+      if (currentState?.status === "loading" || currentState?.status === "success") {
+        return
+      }
+
+      // 标记为正在加载
+      loadingRequestsRef.current.add(column.logicalName)
+
+      // 设置 loading 状态
+      setChoiceOptionsState((prev) => ({
+        ...prev,
+        [column.logicalName]: { status: "loading", options: [], error: null },
+      }))
+
+      try {
+        const options = await fetchChoiceOptions(table.logicalName, column.logicalName, column.type)
+        setChoiceOptionsState((prev) => ({
+          ...prev,
+          [column.logicalName]: { status: "success", options, error: null },
+        }))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load choices"
+        setChoiceOptionsState((prev) => ({
+          ...prev,
+          [column.logicalName]: { status: "error", options: [], error: message },
+        }))
+      } finally {
+        // 无论成功还是失败，都移除加载标记
+        loadingRequestsRef.current.delete(column.logicalName)
+      }
+    }
+
+    const toggleChoiceColumn = (logicalName: string) => {
+      setExpandedChoiceColumns((prev) => {
+        const next = new Set(prev)
+        if (next.has(logicalName)) next.delete(logicalName)
+        else next.add(logicalName)
+        return next
+      })
+    }
 
     const handleEditInDataverse = async () => {
       setDataverseEditError(null)
@@ -500,79 +563,215 @@ function TableDetail({
 	                </thead>
 	                <tbody className="divide-y divide-border">
 	                  <AnimatePresence initial={false}>
-	                    {filteredColumns.map((column) => (
-	                      <motion.tr
-	                        key={column.logicalName}
-	                        initial={{ opacity: 0 }}
-	                        animate={{ opacity: 1 }}
-	                        exit={{ opacity: 0 }}
-	                        transition={{ duration: 0.15 }}
-	                        className="group transition-colors hover:bg-muted/30"
-	                      >
-	                        <td className="px-3 py-2">
-	                          <div className="flex flex-wrap items-center gap-2">
-	                            <span className="font-medium text-foreground">
-	                              {column.displayName}
-	                            </span>
-	                            {column.isPrimaryKey && (
-	                              <Badge
-	                                variant="secondary"
-	                                className="h-5 px-2 py-0 text-[10px]"
-	                              >
-	                                Primary Key
-	                              </Badge>
-	                            )}
-	                          </div>
-	                        </td>
-	                        <td className="px-3 py-2">
-	                          <span className="font-mono text-xs text-muted-foreground">
-	                            {column.logicalName}
-	                          </span>
-	                        </td>
-	                        <td className="px-3 py-2">
-	                          <div className="flex flex-wrap items-center gap-2">
-	                            <span className="font-medium text-foreground">
-	                              {column.type}
-	                            </span>
-	                            {column.lookupTargets && column.lookupTargets.length > 0 && (
-	                              <span className="text-[11px] text-muted-foreground">
-	                                → {column.lookupTargets.join(", ")}
-	                              </span>
-	                            )}
-	                            {column.maxLength && (
-	                              <Badge
-	                                variant="secondary"
-	                                className="h-5 px-2 py-0 text-[10px]"
-	                              >
-	                                {column.maxLength}
-	                              </Badge>
-	                            )}
-	                            {column.optionCount && (
-	                              <Badge
-	                                variant="outline"
-	                                className="h-5 px-2 py-0 text-[10px]"
-	                              >
-	                                {column.optionCount} Options
-	                              </Badge>
-	                            )}
-	                          </div>
-	                        </td>
-	                        <td className="px-3 py-2 text-right">
-	                          <Badge
-	                            variant={
-	                              column.requirement === "System"
-	                                ? "system"
-	                                : column.requirement === "Required"
-	                                ? "required"
-	                                : "optional"
-	                            }
-	                            className="h-5 px-2 py-0 text-[11px]"
-	                          >
-	                            {column.requirement}
-	                          </Badge>
-	                        </td>
-	                      </motion.tr>
-	                    ))}
+	                    {filteredColumns.flatMap((column) => {
+                        const isChoice = isChoiceType(column.type)
+                        const choiceState = choiceOptionsState[column.logicalName]
+                        const resolvedOptions = choiceState?.options?.length ? choiceState.options : column.options
+                        const isExpanded = isChoice && expandedChoiceColumns.has(column.logicalName)
+                        const isLoadingChoices = isChoice && choiceState?.status === "loading"
+                        const choicesCount = resolvedOptions?.length ?? 0
+
+                        const row = (
+                          <motion.tr
+                            key={`${column.logicalName}__row`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className={cn(
+                              "group transition-colors hover:bg-muted/30",
+                              isExpanded && "bg-muted/20 hover:bg-muted/20"
+                            )}
+                          >
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toggleChoiceColumn(column.logicalName)
+                                    if (!isExpanded) {
+                                      void ensureChoiceOptionsLoaded(column)
+                                    }
+                                  }}
+                                  aria-label={isChoice ? "Toggle options" : undefined}
+                                  aria-expanded={isChoice ? isExpanded : undefined}
+                                  disabled={!isChoice}
+                                  className={cn(
+                                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                                    !isChoice && "pointer-events-none opacity-0"
+                                  )}
+                                >
+                                  {isLoadingChoices ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ChevronRight
+                                      className={cn(
+                                        "h-4 w-4 transition-transform duration-200",
+                                        isExpanded && "rotate-90"
+                                      )}
+                                    />
+                                  )}
+                                </button>
+
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <span className="font-medium text-foreground">
+                                    {column.displayName}
+                                  </span>
+                                  {isChoice && (
+                                    <Badge
+                                      variant="outline"
+                                      className="h-5 px-2 py-0 text-[10px]"
+                                    >
+                                      {choiceState?.status === "success" ? `${choicesCount} Options` : "Options"}
+                                    </Badge>
+                                  )}
+                                  {column.isPrimaryKey && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-5 px-2 py-0 text-[10px]"
+                                    >
+                                      Primary Key
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                onClick={() => void copyToClipboard(column.logicalName, `column:${column.logicalName}`)}
+                                className="inline-flex items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted"
+                                title="Click to copy"
+                              >
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {column.logicalName}
+                                </span>
+                                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                {copiedField === `column:${column.logicalName}` && (
+                                  <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                    Copied
+                                  </span>
+                                )}
+                              </button>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium text-foreground">
+                                  {column.type}
+                                </span>
+                                {column.lookupTargets && column.lookupTargets.length > 0 && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    → {column.lookupTargets.join(", ")}
+                                  </span>
+                                )}
+                                {column.maxLength && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-5 px-2 py-0 text-[10px]"
+                                  >
+                                    {column.maxLength}
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Badge
+                                variant={
+                                  column.requirement === "System"
+                                    ? "system"
+                                    : column.requirement === "Required"
+                                    ? "required"
+                                    : "optional"
+                                }
+                                className="h-5 px-2 py-0 text-[11px]"
+                              >
+                                {column.requirement}
+                              </Badge>
+                            </td>
+                          </motion.tr>
+                        )
+
+                        const detailsRow =
+                          isChoice && isExpanded ? (
+                            <motion.tr
+                              key={`${column.logicalName}__options`}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="bg-muted/10"
+                            >
+                              <td colSpan={4} className="px-3 pb-4 pt-0">
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2, ease: "easeOut" }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="rounded-xl border border-border bg-background/60 p-3 shadow-sm">
+                                    <div className="mb-2 flex items-center justify-between gap-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                          Choices
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {choiceState?.status === "success" ? `${choicesCount} total` : "Loading…"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {choiceState?.status === "error" ? (
+                                      <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+                                        <span className="text-sm text-destructive">
+                                          {choiceState.error ?? "Failed to load choices"}
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => void ensureChoiceOptionsLoaded(column)}
+                                        >
+                                          Retry
+                                        </Button>
+                                      </div>
+                                    ) : choiceState?.status === "loading" ? (
+                                      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Loading choices...
+                                      </div>
+                                    ) : (
+                                      <div className="max-h-64 overflow-y-auto pr-1">
+                                        {choicesCount === 0 ? (
+                                          <div className="rounded-lg border border-border bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
+                                            No choices available.
+                                          </div>
+                                        ) : (
+                                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                            {(resolvedOptions ?? []).map((option) => (
+                                              <div
+                                                key={option.value}
+                                                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2"
+                                              >
+                                                <span className="min-w-0 truncate text-sm text-foreground">
+                                                  {option.label}
+                                                </span>
+                                                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                                  {option.value}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              </td>
+                            </motion.tr>
+                          ) : null
+
+                        return [row, detailsRow].filter(Boolean)
+                      })}
 	                  </AnimatePresence>
 	                </tbody>
 	              </table>

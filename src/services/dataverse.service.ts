@@ -45,6 +45,14 @@ function getDisplayName(displayName: DataverseEntity['DisplayName'] | DataverseA
   return 'Unknown'
 }
 
+function getOptionLabel(label: unknown): string {
+  if (!label || typeof label !== 'object') return 'Unknown'
+  const typed = label as { UserLocalizedLabel?: { Label: string } | null; LocalizedLabels?: Array<{ Label: string }> }
+  if (typed.UserLocalizedLabel?.Label) return typed.UserLocalizedLabel.Label
+  if (typed.LocalizedLabels && typed.LocalizedLabels.length > 0) return typed.LocalizedLabels[0].Label
+  return 'Unknown'
+}
+
 /**
  * 映射 AttributeType 到简化类型
  */
@@ -100,10 +108,86 @@ function mapAttributeResponse(attribute: DataverseAttribute): TableColumn {
   // 添加 OptionSet 选项数量（Picklist/State/Status 类型）
   const optionSet = attribute.OptionSet || attribute.GlobalOptionSet
   if (optionSet?.Options) {
-    column.optionCount = optionSet.Options.length
+    const options = optionSet.Options
+      .map((option) => {
+        const resolvedLabel = getOptionLabel(option.Label)
+        return {
+          value: option.Value,
+          label: resolvedLabel === 'Unknown' ? String(option.Value) : resolvedLabel,
+        }
+      })
+      .filter((option) => Number.isFinite(option.value))
+
+    column.optionCount = options.length
+    if (options.length > 0) {
+      column.options = options
+    }
   }
 
   return column
+}
+
+function getChoiceMetadataCast(attributeType: string): string | null {
+  switch (attributeType) {
+    case 'Picklist':
+      return 'Microsoft.Dynamics.CRM.PicklistAttributeMetadata'
+    case 'State':
+      return 'Microsoft.Dynamics.CRM.StateAttributeMetadata'
+    case 'Status':
+      return 'Microsoft.Dynamics.CRM.StatusAttributeMetadata'
+    case 'MultiSelectPicklist':
+      return 'Microsoft.Dynamics.CRM.MultiSelectPicklistAttributeMetadata'
+    default:
+      return null
+  }
+}
+
+export async function fetchChoiceOptions(
+  entityLogicalName: string,
+  attributeLogicalName: string,
+  attributeType: string
+): Promise<NonNullable<TableColumn['options']>> {
+  const encodedEntity = encodeURIComponent(entityLogicalName)
+  const encodedAttribute = encodeURIComponent(attributeLogicalName)
+
+  const cast = getChoiceMetadataCast(attributeType)
+  const base = `${DATAVERSE_API_BASE_PATH}/EntityDefinitions(LogicalName='${encodedEntity}')/Attributes(LogicalName='${encodedAttribute}')`
+  const expand = '$expand=OptionSet($select=Options),GlobalOptionSet($select=Options)'
+  const select = '$select=LogicalName,OptionSet,GlobalOptionSet'
+
+  const candidates = [
+    cast ? `${base}/${cast}?${select}&${expand}` : null,
+    `${base}?${select}`,
+  ].filter(Boolean) as string[]
+
+  let lastError: unknown = null
+
+  for (const url of candidates) {
+    try {
+      const response = await fetchWithTimeout(url)
+      const data = (await response.json()) as {
+        OptionSet?: { Options?: Array<{ Value: number; Label?: unknown }> } | null
+        GlobalOptionSet?: { Options?: Array<{ Value: number; Label?: unknown }> } | null
+      }
+
+      const optionSet = data.OptionSet ?? data.GlobalOptionSet
+      const rawOptions = optionSet?.Options ?? []
+
+      return rawOptions
+        .map((option) => {
+          const resolvedLabel = getOptionLabel(option.Label)
+          return {
+            value: option.Value,
+            label: resolvedLabel === 'Unknown' ? String(option.Value) : resolvedLabel,
+          }
+        })
+        .filter((option) => Number.isFinite(option.value))
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw new Error(handleFetchError(lastError))
 }
 
 /**

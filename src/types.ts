@@ -7,6 +7,7 @@ export interface TableColumn {
   requirement: 'System' | 'Required' | 'Optional'
   isPrimaryKey?: boolean
   optionCount?: number
+  options?: Array<{ value: number; label: string }>
   lookupTargets?: string[]
 }
 
