@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## 项目简介
-这个项目是一个power platform web resource网站，构建完成之后，会生成三个文件(html,js,css)放到power platform里面去使用。 网站用途是可以让用户快速根据table name去查询table的结构。并且还可以跳转到对应的dyanmic365 view页面和Dataverse Edit页面。
+这个项目是一个power platform web resource网站，构建完成之后，会生成三个文件(html,js,css)放到power platform里面去使用。 网站用途是可以让用户快速根据table name去查询table的结构。并且还可以跳转到对应的dyanmic365 view页面和Dataverse Edit页面。 网站还支持通过url参数，参数为logicname 传递table的logic name进行快速查询指定table。
 
 ## 工作原则
 
