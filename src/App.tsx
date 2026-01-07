@@ -1,87 +1,57 @@
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Search,
-  Moon,
-  Sun,
-  ExternalLink,
-  Copy,
-  Check,
-  LayoutGrid,
-  Link2,
-  ChevronRight,
-} from "lucide-react"
+	  Search,
+	  Moon,
+	  Sun,
+	  LayoutGrid,
+	} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import type { TableEntity, TableColumn, Theme } from "./types"
-
-// 模拟数据
-const mockTables: TableEntity[] = [
-  {
-    displayName: "Account",
-    logicalName: "account",
-    objectTypeCode: 1,
-    isCustomEntity: false,
-    columns: [
-      { displayName: "Account", logicalName: "accountid", type: "Uniqueidentifier", requirement: "System", isPrimaryKey: true },
-      { displayName: "Account Name", logicalName: "name", type: "String", maxLength: 160, requirement: "Required" },
-      { displayName: "Primary Contact", logicalName: "primarycontactid", type: "Lookup", requirement: "Optional" },
-      { displayName: "Revenue", logicalName: "revenue", type: "Money", requirement: "Optional" },
-      { displayName: "Industry", logicalName: "industrycode", type: "Picklist", optionCount: 33, requirement: "Optional" },
-    ],
-  },
-  {
-    displayName: "Contact",
-    logicalName: "contact",
-    objectTypeCode: 2,
-    isCustomEntity: false,
-    columns: [
-      { displayName: "Contact", logicalName: "contactid", type: "Uniqueidentifier", requirement: "System", isPrimaryKey: true },
-      { displayName: "Full Name", logicalName: "fullname", type: "String", maxLength: 160, requirement: "Required" },
-      { displayName: "Email", logicalName: "emailaddress1", type: "String", maxLength: 100, requirement: "Optional" },
-      { displayName: "Phone", logicalName: "telephone1", type: "String", maxLength: 50, requirement: "Optional" },
-    ],
-  },
-  {
-    displayName: "Opportunity",
-    logicalName: "opportunity",
-    objectTypeCode: 3,
-    isCustomEntity: false,
-    columns: [
-      { displayName: "Opportunity", logicalName: "opportunityid", type: "Uniqueidentifier", requirement: "System", isPrimaryKey: true },
-      { displayName: "Topic", logicalName: "name", type: "String", maxLength: 300, requirement: "Required" },
-      { displayName: "Est. Revenue", logicalName: "estimatedvalue", type: "Money", requirement: "Optional" },
-      { displayName: "Probability", logicalName: "closeprobability", type: "Integer", requirement: "Optional" },
-    ],
-  },
-  {
-    displayName: "Project Request",
-    logicalName: "new_custom_project",
-    objectTypeCode: 11765,
-    isCustomEntity: true,
-    columns: [
-      { displayName: "Project Request", logicalName: "new_custom_projectid", type: "Uniqueidentifier", requirement: "System", isPrimaryKey: true },
-      { displayName: "Project Name", logicalName: "new_name", type: "String", maxLength: 100, requirement: "Required" },
-      { displayName: "Approved Budget", logicalName: "new_budget", type: "Money", requirement: "Optional" },
-      { displayName: "Urgent?", logicalName: "new_is_urgent", type: "Boolean", requirement: "Optional" },
-      { displayName: "Priority", logicalName: "new_priority", type: "Picklist", optionCount: 4, requirement: "Required" },
-    ],
-  },
-]
+import { useDataverse } from "@/hooks/useDataverse"
+import { useUrlParams } from "@/hooks/useUrlParams"
+import { buildViewUrl, buildDataverseEditUrl } from "@/services/url.utils"
+import { getEnvironmentId } from "@/services/dataverse.service"
 
 function App() {
+  // 主题状态
   const [theme, setTheme] = useState<Theme>("light")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTable, setSelectedTable] = useState<TableEntity | null>(null)
   const [columnSearch, setColumnSearch] = useState("")
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
+  // 使用 Dataverse Hook 获取数据
+  const { tables, loadingState, errors, loadColumns, retryLoadTables } = useDataverse()
+
+  // 解析 URL 参数
+  const { logicname } = useUrlParams()
+
   // 主题切换
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark")
   }, [theme])
+
+	  // URL 参数自动选择表
+	  useEffect(() => {
+	    if (logicname && tables.length > 0) {
+	      const targetTable = tables.find(
+	        (t) => t.logicalName.toLowerCase() === logicname.toLowerCase()
+	      )
+	
+	      if (targetTable) {
+	        queueMicrotask(() => setSelectedTable(targetTable))
+	        // 如果 columns 为空，触发懒加载
+	        if (targetTable.columns.length === 0) {
+	          loadColumns(targetTable.logicalName)
+	        }
+	      }
+	    }
+	  }, [logicname, tables, loadColumns])
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"))
@@ -89,26 +59,34 @@ function App() {
 
   // 过滤表列表
   const filteredTables = useMemo(() => {
-    if (!searchQuery.trim()) return mockTables
+    if (!searchQuery.trim()) return tables
     const query = searchQuery.toLowerCase()
-    return mockTables.filter(
+    return tables.filter(
       (t) =>
         t.displayName.toLowerCase().includes(query) ||
         t.logicalName.toLowerCase().includes(query)
     )
-  }, [searchQuery])
+  }, [searchQuery, tables])
+
+  // 获取当前选中的 table 的最新数据（包含已加载的 columns）
+  const currentTable = useMemo(() => {
+    if (!selectedTable) return null
+    return tables.find(t => t.logicalName === selectedTable.logicalName) || selectedTable
+  }, [selectedTable, tables])
 
   // 过滤列
   const filteredColumns = useMemo(() => {
-    if (!selectedTable) return []
-    if (!columnSearch.trim()) return selectedTable.columns
+    if (!currentTable) return []
+
+    if (!columnSearch.trim()) return currentTable.columns
     const query = columnSearch.toLowerCase()
-    return selectedTable.columns.filter(
+    return currentTable.columns.filter(
       (c) =>
         c.displayName.toLowerCase().includes(query) ||
-        c.logicalName.toLowerCase().includes(query)
+        c.logicalName.toLowerCase().includes(query) ||
+        c.lookupTargets?.some(t => t.toLowerCase().includes(query))
     )
-  }, [selectedTable, columnSearch])
+  }, [currentTable, columnSearch])
 
   // 复制到剪贴板
   const copyToClipboard = async (text: string, field: string) => {
@@ -186,8 +164,27 @@ function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-2 pb-4">
-            <AnimatePresence mode="popLayout">
-              {filteredTables.map((table, index) => {
+            {/* 加载状态 */}
+            {loadingState.tables === 'loading' && (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-sm text-muted-foreground">Loading tables...</div>
+              </div>
+            )}
+
+            {/* 错误状态 */}
+            {errors.tables && (
+              <div className="m-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                <p className="mb-2 text-sm text-destructive">{errors.tables}</p>
+                <Button size="sm" variant="outline" onClick={retryLoadTables}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {/* 表列表 */}
+            {loadingState.tables === 'success' && (
+              <AnimatePresence mode="popLayout">
+                {filteredTables.map((table, index) => {
                 const isSelected = selectedTable?.logicalName === table.logicalName
                 return (
                   <motion.button
@@ -199,6 +196,10 @@ function App() {
                     onClick={() => {
                       setSelectedTable(table)
                       setColumnSearch("")
+                      // 懒加载 columns：如果 columns 为空，触发加载
+                      if (table.columns.length === 0) {
+                        loadColumns(table.logicalName)
+                      }
                     }}
                     className={cn(
                       "group relative flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition-all duration-200",
@@ -220,30 +221,30 @@ function App() {
                     <span className="text-xs text-muted-foreground">
                       {table.logicalName}
                     </span>
-                    {table.isCustomEntity && (
-                      <span className="absolute right-3 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-blue-500" />
-                    )}
                   </motion.button>
                 )
               })}
-            </AnimatePresence>
+              </AnimatePresence>
+            )}
           </div>
         </aside>
 
         {/* Main Content */}
         <main className="relative flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
-            {!selectedTable ? (
-              <EmptyState key="empty" tableCount={mockTables.length} />
+            {!currentTable ? (
+              <EmptyState key="empty" tableCount={tables.length} />
             ) : (
               <TableDetail
-                key={selectedTable.logicalName}
-                table={selectedTable}
+                key={currentTable.logicalName}
+                table={currentTable}
                 columnSearch={columnSearch}
                 setColumnSearch={setColumnSearch}
                 filteredColumns={filteredColumns}
                 copyToClipboard={copyToClipboard}
                 copiedField={copiedField}
+                isLoadingColumns={loadingState.columns[currentTable.logicalName] === 'loading'}
+                columnError={errors.columns[currentTable.logicalName]}
               />
             )}
           </AnimatePresence>
@@ -261,7 +262,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="glass-effect flex h-full flex-col items-center justify-center"
+      className="flex h-full flex-col items-center justify-center bg-background"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
@@ -325,6 +326,8 @@ interface TableDetailProps {
   filteredColumns: TableColumn[]
   copyToClipboard: (text: string, field: string) => void
   copiedField: string | null
+  isLoadingColumns: boolean
+  columnError: string | null | undefined
 }
 
 function TableDetail({
@@ -334,169 +337,250 @@ function TableDetail({
   filteredColumns,
   copyToClipboard,
   copiedField,
-}: TableDetailProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.3 }}
-      className="glass-effect h-full overflow-y-auto p-6"
-    >
-      {/* 表头信息卡片 */}
-      <div className="mb-6 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="mb-1 text-2xl font-bold text-foreground">
-              {table.displayName}
-            </h2>
-            <button
-              onClick={() => copyToClipboard(table.logicalName, "logicalName")}
-              className="group flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <span className="font-mono">{table.logicalName}</span>
-              {copiedField === "logicalName" ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-              )}
-            </button>
+  isLoadingColumns,
+  columnError,
+	}: TableDetailProps) {
+    const [dataverseEditError, setDataverseEditError] = useState<string | null>(null)
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                OTC: {table.objectTypeCode}
-              </Badge>
-              <Badge variant="outline" className="gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Cols: {table.columns.length}
-              </Badge>
-              {table.isCustomEntity && (
-                <Badge variant="default">Custom Entity</Badge>
-              )}
+	  const primaryKey = useMemo(() => {
+	    const pk = table.columns.find((c) => c.isPrimaryKey)?.logicalName
+	    return pk ?? "—"
+	  }, [table.columns])
+
+    const handleEditInDataverse = async () => {
+      setDataverseEditError(null)
+
+      try {
+        const environmentId = await getEnvironmentId()
+        const url = buildDataverseEditUrl({ environmentId, logicalName: table.logicalName })
+        const opened = window.open(url, "_blank")
+        if (!opened) {
+          setDataverseEditError("Popup blocked by your browser. Please allow popups for this site and try again.")
+        }
+      } catch(err) {
+        console.error(err)
+        setDataverseEditError(
+          "Failed to open Dataverse. Please make sure you are signed in and have access to this environment, then try again."
+        )
+      }
+    }
+
+	  return (
+	    <motion.div
+	      initial={{ opacity: 0, x: 20 }}
+	      animate={{ opacity: 1, x: 0 }}
+	      exit={{ opacity: 0, x: -20 }}
+	      transition={{ duration: 0.3 }}
+	      className="scrollbar-gutter-stable h-full overflow-y-auto bg-background px-10 py-8"
+	    >
+	      {/* Header */}
+	      <div className="flex items-start justify-between gap-8 border-b border-border pb-6">
+	        <div className="min-w-0">
+	          <h2 className="text-4xl font-semibold leading-tight text-foreground">
+	            {table.displayName}
+	          </h2>
+	          <button
+	            onClick={() => copyToClipboard(table.logicalName, "logicalName")}
+	            className="mt-1 inline-flex items-center gap-2 truncate text-sm text-muted-foreground transition-colors hover:text-foreground"
+	            title="Click to copy"
+	          >
+	            <span className="truncate font-mono">{table.logicalName}</span>
+	            {copiedField === "logicalName" && (
+	              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+	                Copied
+	              </span>
+	            )}
+	          </button>
+
+	          <div className="mt-6 flex flex-wrap items-center gap-x-10 gap-y-4">
+	            <div className="flex flex-col gap-1">
+	              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                Primary Key
+	              </span>
+	              <span className="font-mono text-sm text-foreground">{primaryKey}</span>
+	            </div>
+	            <div className="flex flex-col gap-1">
+	              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                Object Type Code
+	              </span>
+	              <span className="font-mono text-sm text-foreground">{table.objectTypeCode}</span>
+	            </div>
+	            <div className="flex flex-col gap-1">
+	              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                Total Columns
+	              </span>
+	              <span className="font-mono text-sm text-foreground">{table.columns.length}</span>
+	            </div>
+	            {table.isCustomEntity && (
+	              <Badge variant="secondary" className="h-6">
+	                Custom Entity
+	              </Badge>
+	            )}
+	          </div>
+	        </div>
+
+	        <div className="flex shrink-0 gap-2">
+	          <Button
+	            size="sm"
+	            variant="outline"
+	            onClick={() => window.open(buildViewUrl(table.logicalName), "_blank")}
+	          >
+	            Open View
+	          </Button>
+			          <Button
+			            size="sm"
+			            onClick={() => void handleEditInDataverse()}
+			          >
+			            Edit in Dataverse
+			          </Button>
+			        </div>
+			      </div>
+
+          {dataverseEditError && (
+            <div className="mt-4">
+              <Alert variant="destructive">
+                <AlertTitle>Unable to open Dataverse</AlertTitle>
+                <AlertDescription>{dataverseEditError}</AlertDescription>
+              </Alert>
             </div>
-          </div>
+          )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-1.5">
-              <ExternalLink className="h-4 w-4" />
-              Open View
-            </Button>
-            <Button className="gap-1.5">
-              <ExternalLink className="h-4 w-4" />
-              Edit Dataverse
-            </Button>
-          </div>
-        </div>
-      </div>
+	      {/* Columns */}
+	      <div className="mt-6 flex items-center justify-between gap-4">
+	        <div className="flex items-baseline gap-3">
+	          <h3 className="text-base font-semibold text-foreground">Columns</h3>
+	          <span className="text-sm text-muted-foreground">
+	            {filteredColumns.length} visible
+	          </span>
+	        </div>
+	        <div className="w-72">
+	          <Input
+	            placeholder="Search columns..."
+	            value={columnSearch}
+	            onChange={(e) => setColumnSearch(e.target.value)}
+	          />
+	        </div>
+	      </div>
 
-      {/* 列信息 */}
-      <div className="rounded-xl border border-border bg-card p-6 text-card-foreground shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-foreground">
-              Columns
-            </h3>
-            <span className="text-sm text-muted-foreground">
-              {filteredColumns.length} visible
-            </span>
-          </div>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search columns..."
-              value={columnSearch}
-              onChange={(e) => setColumnSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
+	      {/* Table */}
+	      <div className="mt-3 border-t border-border">
+	          {/* 列加载状态 */}
+	          {isLoadingColumns && (
+	            <div className="flex items-center justify-center p-10">
+	              <div className="text-sm text-muted-foreground">Loading columns...</div>
+	            </div>
+	          )}
 
-        {/* 列表格 */}
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Display Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Logical Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Requirement
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              <AnimatePresence mode="popLayout">
-                {filteredColumns.map((column, index) => (
-                  <motion.tr
-                    key={column.logicalName}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, delay: index * 0.02 }}
-                    className="group transition-colors hover:bg-muted/50"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-foreground">
-                          {column.displayName}
-                        </span>
-                        {column.isPrimaryKey && (
-                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-sm text-muted-foreground">
-                        {column.logicalName}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">
-                          {column.type}
-                        </span>
-                        {column.maxLength && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            {column.maxLength}
-                          </Badge>
-                        )}
-                        {column.optionCount && (
-                          <button className="flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/80">
-                            {column.optionCount} Options
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Badge
-                        variant={
-                          column.requirement === "System"
-                            ? "system"
-                            : column.requirement === "Required"
-                            ? "required"
-                            : "optional"
-                        }
-                      >
-                        {column.requirement}
-                      </Badge>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </motion.div>
-  )
-}
+	          {/* 列错误状态 */}
+	          {columnError && !isLoadingColumns && (
+	            <div className="my-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+	              <p className="text-sm text-destructive">{columnError}</p>
+	            </div>
+	          )}
+
+	          {/* 列数据表格 */}
+	          {!isLoadingColumns && !columnError && (
+	            <div className="overflow-x-auto">
+	              <table className="w-full text-[13px] leading-5">
+	                <thead>
+	                  <tr className="border-b border-border">
+	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                      Display Name
+	                    </th>
+	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                      Logical Name
+	                    </th>
+	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                      Type
+	                    </th>
+	                    <th className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+	                      Requirement
+	                    </th>
+	                  </tr>
+	                </thead>
+	                <tbody className="divide-y divide-border">
+	                  <AnimatePresence initial={false}>
+	                    {filteredColumns.map((column) => (
+	                      <motion.tr
+	                        key={column.logicalName}
+	                        initial={{ opacity: 0 }}
+	                        animate={{ opacity: 1 }}
+	                        exit={{ opacity: 0 }}
+	                        transition={{ duration: 0.15 }}
+	                        className="group transition-colors hover:bg-muted/30"
+	                      >
+	                        <td className="px-3 py-2">
+	                          <div className="flex flex-wrap items-center gap-2">
+	                            <span className="font-medium text-foreground">
+	                              {column.displayName}
+	                            </span>
+	                            {column.isPrimaryKey && (
+	                              <Badge
+	                                variant="secondary"
+	                                className="h-5 px-2 py-0 text-[10px]"
+	                              >
+	                                Primary Key
+	                              </Badge>
+	                            )}
+	                          </div>
+	                        </td>
+	                        <td className="px-3 py-2">
+	                          <span className="font-mono text-xs text-muted-foreground">
+	                            {column.logicalName}
+	                          </span>
+	                        </td>
+	                        <td className="px-3 py-2">
+	                          <div className="flex flex-wrap items-center gap-2">
+	                            <span className="font-medium text-foreground">
+	                              {column.type}
+	                            </span>
+	                            {column.lookupTargets && column.lookupTargets.length > 0 && (
+	                              <span className="text-[11px] text-muted-foreground">
+	                                → {column.lookupTargets.join(", ")}
+	                              </span>
+	                            )}
+	                            {column.maxLength && (
+	                              <Badge
+	                                variant="secondary"
+	                                className="h-5 px-2 py-0 text-[10px]"
+	                              >
+	                                {column.maxLength}
+	                              </Badge>
+	                            )}
+	                            {column.optionCount && (
+	                              <Badge
+	                                variant="outline"
+	                                className="h-5 px-2 py-0 text-[10px]"
+	                              >
+	                                {column.optionCount} Options
+	                              </Badge>
+	                            )}
+	                          </div>
+	                        </td>
+	                        <td className="px-3 py-2 text-right">
+	                          <Badge
+	                            variant={
+	                              column.requirement === "System"
+	                                ? "system"
+	                                : column.requirement === "Required"
+	                                ? "required"
+	                                : "optional"
+	                            }
+	                            className="h-5 px-2 py-0 text-[11px]"
+	                          >
+	                            {column.requirement}
+	                          </Badge>
+	                        </td>
+	                      </motion.tr>
+	                    ))}
+	                  </AnimatePresence>
+	                </tbody>
+	              </table>
+	            </div>
+	          )}
+	        </div>
+	    </motion.div>
+	  )
+	}
 
 export default App

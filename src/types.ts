@@ -7,6 +7,7 @@ export interface TableColumn {
   requirement: 'System' | 'Required' | 'Optional'
   isPrimaryKey?: boolean
   optionCount?: number
+  lookupTargets?: string[]
 }
 
 export interface TableEntity {
@@ -19,3 +20,6 @@ export interface TableEntity {
 
 // 主题类型
 export type Theme = 'light' | 'dark'
+
+// 从 services/types.ts 导出加载和错误状态类型
+export type { LoadingState, ErrorState, LoadingStatus } from './services/types'

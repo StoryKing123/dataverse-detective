@@ -141,3 +141,7 @@ body {
 .dark .glass-effect::before {
   opacity: 0.05;
 }
+
+.scrollbar-gutter-stable {
+  scrollbar-gutter: stable;
+}
