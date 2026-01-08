@@ -66,10 +66,51 @@ async function main() {
 	await fs.rm(webResourcesRootDir, { recursive: true, force: true })
 	await ensureDir(webResourceTargetDir)
 	const distEntries = await fs.readdir(distDir, { withFileTypes: true })
-	for (const entry of distEntries) {
-		if (!entry.isFile()) continue
-		const srcFile = path.join(distDir, entry.name)
-		const destFile = path.join(webResourceTargetDir, entry.name)
+	const distFiles = new Set(
+		distEntries.filter((entry) => entry.isFile()).map((entry) => entry.name),
+	)
+
+	const prefixedBaseName = "Dataverse_Detective_index"
+	const preferred = {
+		html: `${prefixedBaseName}.html`,
+		js: `${prefixedBaseName}.js`,
+		css: `${prefixedBaseName}.css`,
+	}
+	const fallback = {
+		html: "index.html",
+		js: "index.js",
+		css: "index.css",
+	}
+
+	const selected = {
+		html: distFiles.has(preferred.html) ? preferred.html : fallback.html,
+		js: distFiles.has(preferred.js) ? preferred.js : fallback.js,
+		css: distFiles.has(preferred.css) ? preferred.css : fallback.css,
+	}
+
+	for (const [kind, srcName, destName] of [
+		["html", selected.html, preferred.html],
+		["js", selected.js, preferred.js],
+		["css", selected.css, preferred.css],
+	]) {
+		if (!distFiles.has(srcName)) {
+			throw new Error(
+				`Missing dist output: ${srcName}. Run "pnpm build" first.`,
+			)
+		}
+
+		const srcFile = path.join(distDir, srcName)
+		const destFile = path.join(webResourceTargetDir, destName)
+
+		if (kind === "html") {
+			const html = await fs.readFile(srcFile, "utf8")
+			const rewritten = html
+				.replaceAll(preferred.js, fallback.js)
+				.replaceAll(preferred.css, fallback.css)
+			await fs.writeFile(destFile, rewritten, "utf8")
+			continue
+		}
+
 		await fs.copyFile(srcFile, destFile)
 	}
 

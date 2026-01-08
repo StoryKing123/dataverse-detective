@@ -21,11 +21,12 @@ export default defineConfig(({ command }) => ({
 		// 防止小文件被内联为base64
 		assetsInlineLimit: 0,
 		rollupOptions: {
+			input: path.resolve(__dirname, "Dataverse_Detective_index.html"),
 			output: {
 				// 不使用hash，使用固定的文件名
-				entryFileNames: "index.js",
-				chunkFileNames: "index.js",
-				assetFileNames: "index.[ext]",
+				entryFileNames: "Dataverse_Detective_index.js",
+				chunkFileNames: "Dataverse_Detective_index.js",
+				assetFileNames: "Dataverse_Detective_index.[ext]",
 			},
 		},
 	},
