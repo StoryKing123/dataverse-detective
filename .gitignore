@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Power Platform solution build outputs
+solution/out/_pack_tmp
+solution/out/*.zip
+solution/src/WebResources/util_/dataverse_detective/*
+solution/unpacked/WebResources/util_/dataverse_detective/*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

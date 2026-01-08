@@ -1,0 +1,77 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Entities />
+  <Roles />
+  <Workflows />
+  <FieldSecurityProfiles />
+  <Templates />
+  <WebResources>
+    <WebResource>
+      <WebResourceId>{b277cf3b-07aa-49c3-b69e-21c31610c52d}</WebResourceId>
+      <Name>util_/dataverse_detective/index.html</Name>
+      <DisplayName>index.html</DisplayName>
+      <WebResourceType>1</WebResourceType>
+      <IntroducedVersion>1.0</IntroducedVersion>
+      <IsEnabledForMobileClient>0</IsEnabledForMobileClient>
+      <IsAvailableForMobileOffline>0</IsAvailableForMobileOffline>
+      <IsCustomizable>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>iscustomizable</ManagedPropertyLogicalName>
+      </IsCustomizable>
+      <IsHidden>0</IsHidden>
+      <CanBeDeleted>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>canbedeleted</ManagedPropertyLogicalName>
+      </CanBeDeleted>
+      <FileName>/WebResources/util_/dataverse_detective/index.html</FileName>
+    </WebResource>
+    <WebResource>
+      <WebResourceId>{ce467584-1caf-4756-b4e9-3a7be4f732f4}</WebResourceId>
+      <Name>util_/dataverse_detective/index.js</Name>
+      <DisplayName>index.js</DisplayName>
+      <WebResourceType>3</WebResourceType>
+      <IntroducedVersion>1.0</IntroducedVersion>
+      <IsEnabledForMobileClient>0</IsEnabledForMobileClient>
+      <IsAvailableForMobileOffline>0</IsAvailableForMobileOffline>
+      <IsCustomizable>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>iscustomizable</ManagedPropertyLogicalName>
+      </IsCustomizable>
+      <IsHidden>0</IsHidden>
+      <CanBeDeleted>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>canbedeleted</ManagedPropertyLogicalName>
+      </CanBeDeleted>
+      <FileName>/WebResources/util_/dataverse_detective/index.js</FileName>
+    </WebResource>
+    <WebResource>
+      <WebResourceId>{117fcf96-5b6c-4ccc-b701-78f4ad2d791d}</WebResourceId>
+      <Name>util_/dataverse_detective/index.css</Name>
+      <DisplayName>index.css</DisplayName>
+      <WebResourceType>2</WebResourceType>
+      <IntroducedVersion>1.0</IntroducedVersion>
+      <IsEnabledForMobileClient>0</IsEnabledForMobileClient>
+      <IsAvailableForMobileOffline>0</IsAvailableForMobileOffline>
+      <IsCustomizable>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>iscustomizable</ManagedPropertyLogicalName>
+      </IsCustomizable>
+      <IsHidden>0</IsHidden>
+      <CanBeDeleted>
+        <CanBeChanged>1</CanBeChanged>
+        <ManagedPropertyLogicalName>canbedeleted</ManagedPropertyLogicalName>
+      </CanBeDeleted>
+      <FileName>/WebResources/util_/dataverse_detective/index.css</FileName>
+    </WebResource>
+  </WebResources>
+  <EntityMaps />
+  <EntityRelationships />
+  <OrganizationSettings />
+  <optionsets />
+  <CustomControls />
+  <SolutionPluginAssemblies />
+  <EntityDataProviders />
+  <Languages>
+    <Language>1033</Language>
+  </Languages>
+</ImportExportXml>

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "pack:solution": "node scripts/pack-solution.mjs",
+    "build:solution": "pnpm build && pnpm pack:solution",
     "lint": "eslint .",
     "preview": "vite preview"
   },

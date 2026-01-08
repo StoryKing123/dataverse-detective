@@ -1,5 +1,15 @@
 # React + TypeScript + Vite
 
+## Power Platform solution (Web Resources)
+
+把构建后的 `dist/` 产物打包成可直接在 Power Platform 导入的 solution：
+
+```bash
+pnpm build:solution
+```
+
+产物：`solution/out/dataverse_detective_unmanaged.zip`（在 Power Apps Maker Portal -> Solutions 里直接 Import）。
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
