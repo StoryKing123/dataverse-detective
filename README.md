@@ -1,83 +1,102 @@
-# React + TypeScript + Vite
+# Dataverse Detective
 
-## Power Platform solution (Web Resources)
+A lightweight “table schema detective” for **Microsoft Dataverse / Power Platform**: quickly search for Tables in the browser and inspect Columns metadata (type, required, primary key, lookup targets, choice options, etc.), with one-click entry points to Dynamics 365 Views and the Maker Portal.
 
-把构建后的 `dist/` 产物打包成可直接在 Power Platform 导入的 solution：
+> Designed to run as a **Power Platform Web Resource**: reads the Dataverse Web API directly via same-origin `/api/data/v9.2` (using the current signed-in user's permissions).
+
+## Screenshot
+
+> Save your screenshot as `web_screenshot.png` and it will show up here automatically.
+
+![Dataverse Detective](web_screenshot.png)
+
+## Features
+
+- Table search and quick navigation (supports `?logicname=account` to jump directly to a table)
+- Lazy-loaded Columns + column search (Display Name / Logical Name / Lookup Targets)
+- Key info at a glance: Primary Key / Object Type Code / Total Columns / Custom Entity
+- One-click copy for Logical Name
+- Expand Choice types to view options (Picklist / State / Status / MultiSelectPicklist)
+- Deep links
+  - `Open View`: opens the table's list view in the current org (`/main.aspx?pagetype=entitylist&etn=...`)
+  - `Edit in Dataverse`: opens the table definition page in the Maker Portal
+- Light/Dark mode
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ (20+ recommended)
+- pnpm
+
+### Install
+
+```bash
+pnpm install
+```
+
+### Dev
+
+```bash
+pnpm dev
+```
+
+Notes:
+- This project requests `/api/data/v9.2` by default, so local development usually can't access Dataverse directly (same-origin + authenticated context required).
+- The recommended validation workflow is to import it into Dataverse and open it as a Web Resource for end-to-end testing.
+
+## Build
+
+```bash
+pnpm build
+```
+
+Outputs are written to `dist/` with fixed filenames (no hash) for easy publishing as Web Resources:
+- `Dataverse_Detective_index.html`
+- `Dataverse_Detective_index.js`
+- `Dataverse_Detective_index.css`
+
+## Package as Power Platform Solution
+
+Package the built `dist/` outputs into a Solution (Web Resources) that can be imported directly into Power Platform:
 
 ```bash
 pnpm build:solution
 ```
 
-产物：`solution/out/dataverse_detective_unmanaged.zip`（在 Power Apps Maker Portal -> Solutions 里直接 Import）。
+Output: `solution/out/dataverse_detective_unmanaged.zip`
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Dependencies:
+- The packaging script calls the system `zip` command; it's typically built-in on macOS/Linux. On Windows, install `zip` yourself or use WSL.
 
-Currently, two official plugins are available:
+## Import & Open
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Power Apps Maker Portal → Solutions → Import → select `solution/out/dataverse_detective_unmanaged.zip`
+- After import, the following Web Resources will be created:
+  - `util_/dataverse_detective/index.html`
+  - `util_/dataverse_detective/index.js`
+  - `util_/dataverse_detective/index.css`
+- Direct access examples (replace with your org domain):
+  - `https://<your-org>.crm.dynamics.com/WebResources/util_/dataverse_detective/Dataverse_Detective_index.html`
+  - `https://<your-org>.crm.dynamics.com/WebResources/util_/dataverse_detective/Dataverse_Detective_index.html?logicname=account`
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `pnpm dev`: start the dev server
+- `pnpm build`: build for production
+- `pnpm preview`: preview the production build
+- `pnpm lint`: lint the code
+- `pnpm build:solution`: build and package the Solution
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+React + TypeScript + Vite + Tailwind CSS + shadcn/ui + Framer Motion
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Contributing
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Issues and PRs are welcome
+- Before submitting, please run: `pnpm lint`
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## License
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+MIT License
