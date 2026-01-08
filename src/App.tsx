@@ -572,10 +572,13 @@ function TableDetail({
 	                <thead>
 	                  <tr className="border-b border-border">
 	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-	                      Display Name
+	                      <div className="flex items-center gap-2">
+	                        <div className="h-7 w-7 shrink-0" />
+	                        <span>Display Name</span>
+	                      </div>
 	                    </th>
 	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-	                      Logical Name
+	                      <span className="pl-1.5">Logical Name</span>
 	                    </th>
 	                    <th className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 	                      Type
