@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
 	  Search,
+	  Info,
 	  Moon,
 	  Sun,
 	  LayoutGrid,
@@ -19,6 +20,8 @@ import { useDataverse } from "@/hooks/useDataverse"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { buildViewUrl, buildDataverseEditUrl } from "@/services/url.utils"
 import { fetchChoiceOptions, getEnvironmentId } from "@/services/dataverse.service"
+
+const TABLE_LIST_RENDER_LIMIT = 200
 
 function App() {
   // 主题状态
@@ -71,6 +74,13 @@ function App() {
     )
   }, [searchQuery, tables])
 
+  const visibleTables = useMemo(
+    () => filteredTables.slice(0, TABLE_LIST_RENDER_LIMIT),
+    [filteredTables]
+  )
+
+  const isTableListCapped = filteredTables.length > TABLE_LIST_RENDER_LIMIT
+
   // 获取当前选中的 table 的最新数据（包含已加载的 columns）
   const currentTable = useMemo(() => {
     if (!selectedTable) return null
@@ -108,7 +118,7 @@ function App() {
           </div>
           <span className="text-lg font-semibold">
             <span className="text-violet-600 dark:text-violet-400">Dataverse</span>{" "}
-            <span className="text-foreground">X-Ray</span>
+            <span className="text-foreground">Detective</span>
           </span>
         </div>
         <Button
@@ -121,7 +131,7 @@ function App() {
             {theme === "light" ? (
               <motion.div
                 key="moon"
-                initial={{ rotate: -90, opacity: 0 }}
+                initial={false}
                 animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.2 }}
@@ -131,7 +141,7 @@ function App() {
             ) : (
               <motion.div
                 key="sun"
-                initial={{ rotate: 90, opacity: 0 }}
+                initial={false}
                 animate={{ rotate: 0, opacity: 1 }}
                 exit={{ rotate: -90, opacity: 0 }}
                 transition={{ duration: 0.2 }}
@@ -143,9 +153,9 @@ function App() {
         </Button>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="flex w-[400px] shrink-0 flex-col border-r border-border bg-background">
+        <aside className="flex min-h-0 w-[400px] shrink-0 flex-col border-r border-border bg-background">
           <div className="p-4">
             <div className="mb-3 flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -164,9 +174,19 @@ function App() {
                 className="pl-9"
               />
             </div>
+            {isTableListCapped && (
+              <div className="mt-2 flex items-start gap-2 rounded-md border border-border/60 bg-muted/15 px-3 py-2 text-[11px] leading-snug text-muted-foreground">
+                <Info className="mt-[1px] h-4 w-4 shrink-0 text-muted-foreground" />
+                <span>
+                  {searchQuery.trim()
+                    ? `Showing first ${TABLE_LIST_RENDER_LIMIT} matching tables. Refine your search to narrow results.`
+                    : `Showing first ${TABLE_LIST_RENDER_LIMIT} of ${filteredTables.length} tables. Use search to find more.`}
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-2 pb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
             {/* 加载状态 */}
             {loadingState.tables === 'loading' && (
               <div className="flex items-center justify-center p-8">
@@ -187,15 +207,19 @@ function App() {
             {/* 表列表 */}
             {loadingState.tables === 'success' && (
               <AnimatePresence mode="popLayout">
-                {filteredTables.map((table, index) => {
+                {visibleTables.map((table, index) => {
                 const isSelected = selectedTable?.logicalName === table.logicalName
                 return (
                   <motion.button
                     key={table.logicalName}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2, delay: index * 0.03 }}
+                    layout="position"
+                    initial={false}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      transition: { duration: 0.15, delay: Math.min(index, 20) * 0.02 },
+                    }}
+                    exit={{ opacity: 0, y: -10, transition: { duration: 0.1 } }}
                     onClick={() => {
                       setSelectedTable(table)
                       setColumnSearch("")
@@ -233,7 +257,7 @@ function App() {
         </aside>
 
         {/* Main Content */}
-        <main className="relative flex-1 overflow-hidden">
+        <main className="relative min-h-0 flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             {!currentTable ? (
               <EmptyState key="empty" tableCount={tables.length} />
@@ -261,14 +285,14 @@ function App() {
 function EmptyState({ tableCount }: { tableCount: number }) {
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       className="flex h-full flex-col items-center justify-center bg-background"
     >
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={false}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.4, type: "spring" }}
         className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card text-card-foreground shadow-sm"
@@ -277,7 +301,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
       </motion.div>
 
       <motion.h1
-        initial={{ y: 20, opacity: 0 }}
+        initial={false}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.4 }}
         className="mb-3 text-3xl font-bold text-foreground"
@@ -286,7 +310,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
       </motion.h1>
 
       <motion.p
-        initial={{ y: 20, opacity: 0 }}
+        initial={false}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.4 }}
         className="mb-10 max-w-md text-center text-muted-foreground"
@@ -295,7 +319,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
       </motion.p>
 
       <motion.div
-        initial={{ y: 20, opacity: 0 }}
+        initial={false}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.4 }}
         className="flex gap-4"
@@ -428,14 +452,14 @@ function TableDetail({
       }
     }
 
-	  return (
-	    <motion.div
-	      initial={{ opacity: 0, x: 20 }}
-	      animate={{ opacity: 1, x: 0 }}
-	      exit={{ opacity: 0, x: -20 }}
-	      transition={{ duration: 0.3 }}
-	      className="scrollbar-gutter-stable h-full overflow-y-auto bg-background px-10 py-8"
-	    >
+		  return (
+		    <motion.div
+		      initial={false}
+		      animate={{ opacity: 1, x: 0 }}
+		      exit={{ opacity: 0, x: -20 }}
+		      transition={{ duration: 0.3 }}
+		      className="scrollbar-gutter-stable h-full overflow-y-auto bg-background px-10 py-8"
+		    >
 	      {/* Header */}
 	      <div className="flex items-start justify-between gap-8 border-b border-border pb-6">
 	        <div className="min-w-0">
@@ -571,15 +595,15 @@ function TableDetail({
                         const isLoadingChoices = isChoice && choiceState?.status === "loading"
                         const choicesCount = resolvedOptions?.length ?? 0
 
-                        const row = (
-                          <motion.tr
-                            key={`${column.logicalName}__row`}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.15 }}
-                            className={cn(
-                              "group transition-colors hover:bg-muted/30",
+	                        const row = (
+	                          <motion.tr
+	                            key={`${column.logicalName}__row`}
+	                            initial={false}
+	                            animate={{ opacity: 1 }}
+	                            exit={{ opacity: 0 }}
+	                            transition={{ duration: 0.15 }}
+	                            className={cn(
+	                              "group transition-colors hover:bg-muted/30",
                               isExpanded && "bg-muted/20 hover:bg-muted/20"
                             )}
                           >
@@ -692,24 +716,24 @@ function TableDetail({
                         )
 
                         const detailsRow =
-                          isChoice && isExpanded ? (
-                            <motion.tr
-                              key={`${column.logicalName}__options`}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.15 }}
-                              className="bg-muted/10"
-                            >
-                              <td colSpan={4} className="px-3 pb-4 pt-0">
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: 0.2, ease: "easeOut" }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="rounded-xl border border-border bg-background/60 p-3 shadow-sm">
+	                          isChoice && isExpanded ? (
+	                            <motion.tr
+	                              key={`${column.logicalName}__options`}
+	                              initial={false}
+	                              animate={{ opacity: 1 }}
+	                              exit={{ opacity: 0 }}
+	                              transition={{ duration: 0.15 }}
+	                              className="bg-background"
+	                            >
+	                              <td colSpan={4} className="px-3 pb-4 pt-0">
+	                                <motion.div
+	                                  initial={false}
+	                                  animate={{ height: "auto", opacity: 1 }}
+	                                  exit={{ height: 0, opacity: 0 }}
+	                                  transition={{ duration: 0.2, ease: "easeOut" }}
+	                                  className="overflow-hidden"
+	                                >
+                                  <div className="p-3">
                                     <div className="mb-2 flex items-center justify-between gap-4">
                                       <div className="flex items-center gap-2">
                                         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -740,22 +764,22 @@ function TableDetail({
                                         Loading choices...
                                       </div>
                                     ) : (
-                                      <div className="max-h-64 overflow-y-auto pr-1">
+                                      <div className="max-h-64 overflow-y-auto">
                                         {choicesCount === 0 ? (
                                           <div className="rounded-lg border border-border bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
                                             No choices available.
                                           </div>
                                         ) : (
-                                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                             {(resolvedOptions ?? []).map((option) => (
                                               <div
                                                 key={option.value}
-                                                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-2.5 py-2"
+                                                className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-background px-4 py-2 shadow-sm transition-colors hover:bg-muted/15"
                                               >
-                                                <span className="min-w-0 truncate text-sm text-foreground">
+                                                <span className="min-w-0 truncate text-sm font-medium text-foreground">
                                                   {option.label}
                                                 </span>
-                                                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                                <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                                                   {option.value}
                                                 </span>
                                               </div>
