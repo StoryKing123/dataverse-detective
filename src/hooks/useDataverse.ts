@@ -4,15 +4,16 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { TableEntity, TableColumn } from '../types'
+import type { TableEntity, TableColumn, TableRelationship } from '../types'
 import type { LoadingState, ErrorState } from '../services/types'
-import { fetchEntities, fetchEntityColumns } from '../services/dataverse.service'
+import { fetchEntities, fetchEntityColumns, fetchEntityRelationships } from '../services/dataverse.service'
 
 interface UseDataverseReturn {
   tables: TableEntity[]
   loadingState: LoadingState
   errors: ErrorState
   loadColumns: (logicalName: string) => Promise<void>
+  loadRelationships: (logicalName: string) => Promise<void>
   retryLoadTables: () => void
 }
 
@@ -28,16 +29,19 @@ export function useDataverse(): UseDataverseReturn {
   const [loadingState, setLoadingState] = useState<LoadingState>({
     tables: 'idle',
     columns: {},
+    relationships: {},
   })
 
   // 错误状态
   const [errors, setErrors] = useState<ErrorState>({
     tables: null,
     columns: {},
+    relationships: {},
   })
 
   // 列数据缓存（避免重复请求）
   const columnsCache = useRef<Map<string, TableColumn[]>>(new Map())
+  const relationshipsCache = useRef<Map<string, TableRelationship[]>>(new Map())
 
   /**
    * 加载所有表列表
@@ -81,6 +85,16 @@ export function useDataverse(): UseDataverseReturn {
             : table
         )
       )
+
+      // 标记为已加载，避免上层重复触发
+      setLoadingState(prev => ({
+        ...prev,
+        columns: { ...prev.columns, [logicalName]: 'success' },
+      }))
+      setErrors(prev => ({
+        ...prev,
+        columns: { ...prev.columns, [logicalName]: null },
+      }))
       return
     }
 
@@ -127,6 +141,67 @@ export function useDataverse(): UseDataverseReturn {
     }
   }, [])
 
+  const loadRelationships = useCallback(async (logicalName: string) => {
+    if (relationshipsCache.current.has(logicalName)) {
+      const cachedRelationships = relationshipsCache.current.get(logicalName)!
+
+      setTables(prev =>
+        prev.map(table =>
+          table.logicalName === logicalName
+            ? { ...table, relationships: cachedRelationships }
+            : table
+        )
+      )
+
+      setLoadingState(prev => ({
+        ...prev,
+        relationships: { ...prev.relationships, [logicalName]: 'success' },
+      }))
+      setErrors(prev => ({
+        ...prev,
+        relationships: { ...prev.relationships, [logicalName]: null },
+      }))
+      return
+    }
+
+    setLoadingState(prev => ({
+      ...prev,
+      relationships: { ...prev.relationships, [logicalName]: 'loading' },
+    }))
+    setErrors(prev => ({
+      ...prev,
+      relationships: { ...prev.relationships, [logicalName]: null },
+    }))
+
+    try {
+      const relationships = await fetchEntityRelationships(logicalName)
+      relationshipsCache.current.set(logicalName, relationships)
+
+      setTables(prev =>
+        prev.map(table =>
+          table.logicalName === logicalName
+            ? { ...table, relationships }
+            : table
+        )
+      )
+
+      setLoadingState(prev => ({
+        ...prev,
+        relationships: { ...prev.relationships, [logicalName]: 'success' },
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load relationships'
+      setErrors(prev => ({
+        ...prev,
+        relationships: { ...prev.relationships, [logicalName]: errorMessage },
+      }))
+      setLoadingState(prev => ({
+        ...prev,
+        relationships: { ...prev.relationships, [logicalName]: 'error' },
+      }))
+    }
+  }, [])
+
   // 组件挂载时加载表列表
   useEffect(() => {
     queueMicrotask(() => {
@@ -139,6 +214,7 @@ export function useDataverse(): UseDataverseReturn {
     loadingState,
     errors,
     loadColumns,
+    loadRelationships,
     retryLoadTables,
   }
 }

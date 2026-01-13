@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
-import type { TableEntity, TableColumn, Theme } from "./types"
+import type { TableEntity, TableColumn, TableRelationship, Theme } from "./types"
 import { useDataverse } from "@/hooks/useDataverse"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { buildViewUrl, buildDataverseEditUrl } from "@/services/url.utils"
@@ -28,11 +28,13 @@ function App() {
   const [theme, setTheme] = useState<Theme>("light")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTable, setSelectedTable] = useState<TableEntity | null>(null)
+  const [activeTab, setActiveTab] = useState<"columns" | "relationships">("columns")
   const [columnSearch, setColumnSearch] = useState("")
+  const [relationshipSearch, setRelationshipSearch] = useState("")
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // 使用 Dataverse Hook 获取数据
-  const { tables, loadingState, errors, loadColumns, retryLoadTables } = useDataverse()
+  const { tables, loadingState, errors, loadColumns, loadRelationships, retryLoadTables } = useDataverse()
 
   // 解析 URL 参数
   const { logicname } = useUrlParams()
@@ -50,14 +52,15 @@ function App() {
 	      )
 	
 	      if (targetTable) {
-	        queueMicrotask(() => setSelectedTable(targetTable))
-	        // 如果 columns 为空，触发懒加载
-	        if (targetTable.columns.length === 0) {
-	          loadColumns(targetTable.logicalName)
-	        }
+	        queueMicrotask(() => {
+            setSelectedTable(targetTable)
+            setRelationshipSearch("")
+            setColumnSearch("")
+            void loadColumns(targetTable.logicalName)
+          })
 	      }
 	    }
-	  }, [logicname, tables, loadColumns])
+	  }, [logicname, loadColumns, tables])
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"))
@@ -87,6 +90,14 @@ function App() {
     return tables.find(t => t.logicalName === selectedTable.logicalName) || selectedTable
   }, [selectedTable, tables])
 
+  const tableDisplayNameByLogicalName = useMemo(() => {
+    const result: Record<string, string> = {}
+    for (const table of tables) {
+      result[table.logicalName.toLowerCase()] = table.displayName
+    }
+    return result
+  }, [tables])
+
   // 过滤列
   const filteredColumns = useMemo(() => {
     if (!currentTable) return []
@@ -100,6 +111,49 @@ function App() {
         c.lookupTargets?.some(t => t.toLowerCase().includes(query))
     )
   }, [currentTable, columnSearch])
+
+  const filteredRelationships = useMemo(() => {
+    if (!currentTable) return []
+    const relationships = currentTable.relationships ?? []
+    if (!relationshipSearch.trim()) return relationships
+    const query = relationshipSearch.toLowerCase()
+    return relationships.filter((relationship) => {
+      const relatedDisplayName =
+        tableDisplayNameByLogicalName[relationship.relatedTableLogicalName.toLowerCase()] ?? ""
+
+      return (
+        relationship.schemaName.toLowerCase().includes(query) ||
+        relationship.relatedTableLogicalName.toLowerCase().includes(query) ||
+        relatedDisplayName.toLowerCase().includes(query) ||
+        relationship.referencingAttribute?.toLowerCase().includes(query) ||
+        relationship.referencedAttribute?.toLowerCase().includes(query) ||
+        relationship.intersectEntityName?.toLowerCase().includes(query)
+      )
+    })
+  }, [currentTable, relationshipSearch, tableDisplayNameByLogicalName])
+
+  const currentRelationshipsStatus = currentTable ? loadingState.relationships[currentTable.logicalName] : undefined
+
+  const selectTable = (table: TableEntity) => {
+    setSelectedTable(table)
+    setRelationshipSearch("")
+    setColumnSearch("")
+    void loadColumns(table.logicalName)
+  }
+
+  useEffect(() => {
+    if (!currentTable) return
+    const logicalName = currentTable.logicalName
+
+    if (activeTab !== "relationships") return
+    if (currentRelationshipsStatus === "loading" || currentRelationshipsStatus === "success") return
+    void loadRelationships(logicalName)
+  }, [
+    activeTab,
+    currentRelationshipsStatus,
+    currentTable,
+    loadRelationships,
+  ])
 
   // 复制到剪贴板
   const copyToClipboard = async (text: string, field: string) => {
@@ -221,12 +275,7 @@ function App() {
                     }}
                     exit={{ opacity: 0, y: -10, transition: { duration: 0.1 } }}
                     onClick={() => {
-                      setSelectedTable(table)
-                      setColumnSearch("")
-                      // 懒加载 columns：如果 columns 为空，触发加载
-                      if (table.columns.length === 0) {
-                        loadColumns(table.logicalName)
-                      }
+                      selectTable(table)
                     }}
                     className={cn(
                       "group relative flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition-all duration-200",
@@ -268,10 +317,25 @@ function App() {
                 columnSearch={columnSearch}
                 setColumnSearch={setColumnSearch}
                 filteredColumns={filteredColumns}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                relationshipSearch={relationshipSearch}
+                setRelationshipSearch={setRelationshipSearch}
+                filteredRelationships={filteredRelationships}
+                tableDisplayNameByLogicalName={tableDisplayNameByLogicalName}
+                openTableByLogicalName={(logicalName) => {
+                  const targetTable = tables.find((t) => t.logicalName.toLowerCase() === logicalName.toLowerCase())
+                  if (targetTable) {
+                    selectTable(targetTable)
+                  }
+                }}
                 copyToClipboard={copyToClipboard}
                 copiedField={copiedField}
                 isLoadingColumns={loadingState.columns[currentTable.logicalName] === 'loading'}
                 columnError={errors.columns[currentTable.logicalName]}
+                isLoadingRelationships={loadingState.relationships[currentTable.logicalName] === 'loading'}
+                relationshipError={errors.relationships[currentTable.logicalName]}
+                retryRelationships={() => void loadRelationships(currentTable.logicalName)}
               />
             )}
           </AnimatePresence>
@@ -353,10 +417,20 @@ interface TableDetailProps {
   columnSearch: string
   setColumnSearch: (value: string) => void
   filteredColumns: TableColumn[]
+  activeTab: "columns" | "relationships"
+  setActiveTab: (tab: "columns" | "relationships") => void
+  relationshipSearch: string
+  setRelationshipSearch: (value: string) => void
+  filteredRelationships: TableRelationship[]
+  tableDisplayNameByLogicalName: Record<string, string>
+  openTableByLogicalName: (logicalName: string) => void
   copyToClipboard: (text: string, field: string) => void
   copiedField: string | null
   isLoadingColumns: boolean
   columnError: string | null | undefined
+  isLoadingRelationships: boolean
+  relationshipError: string | null | undefined
+  retryRelationships: () => void
 }
 
 function TableDetail({
@@ -364,10 +438,20 @@ function TableDetail({
   columnSearch,
   setColumnSearch,
   filteredColumns,
+  activeTab,
+  setActiveTab,
+  relationshipSearch,
+  setRelationshipSearch,
+  filteredRelationships,
+  tableDisplayNameByLogicalName,
+  openTableByLogicalName,
   copyToClipboard,
   copiedField,
   isLoadingColumns,
   columnError,
+  isLoadingRelationships,
+  relationshipError,
+  retryRelationships,
 	}: TableDetailProps) {
     const [dataverseEditError, setDataverseEditError] = useState<string | null>(null)
     const [expandedChoiceColumns, setExpandedChoiceColumns] = useState<Set<string>>(() => new Set())
@@ -381,6 +465,16 @@ function TableDetail({
 	    const pk = table.columns.find((c) => c.isPrimaryKey)?.logicalName
 	    return pk ?? "—"
 	  }, [table.columns])
+
+    const relationshipCounts = useMemo(() => {
+      const counts = { OneToMany: 0, ManyToOne: 0, ManyToMany: 0 }
+      for (const rel of filteredRelationships) {
+        if (rel.kind === "OneToMany") counts.OneToMany += 1
+        else if (rel.kind === "ManyToOne") counts.ManyToOne += 1
+        else if (rel.kind === "ManyToMany") counts.ManyToMany += 1
+      }
+      return counts
+    }, [filteredRelationships])
 
     const isChoiceType = (type: string) =>
       type === "Picklist" || type === "State" || type === "Status" || type === "MultiSelectPicklist"
@@ -534,25 +628,56 @@ function TableDetail({
             </div>
           )}
 
-	      {/* Columns */}
-	      <div className="mt-6 flex items-center justify-between gap-4">
-	        <div className="flex items-baseline gap-3">
-	          <h3 className="text-base font-semibold text-foreground">Columns</h3>
-	          <span className="text-sm text-muted-foreground">
-	            {filteredColumns.length} visible
-	          </span>
-	        </div>
-	        <div className="w-72">
-	          <Input
-	            placeholder="Search columns..."
-	            value={columnSearch}
-	            onChange={(e) => setColumnSearch(e.target.value)}
-	          />
-	        </div>
-	      </div>
+        {/* Section header + minimal tab switch */}
+        <div className="mt-6 flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+                {activeTab === "columns" ? "Columns" : "Relationships"}
+              </h3>
+              <span className="text-sm text-muted-foreground">
+                {(activeTab === "columns" ? filteredColumns.length : filteredRelationships.length)}{" "}
+                visible
+              </span>
 
-	      {/* Table */}
-	      <div className="mt-3 border-t border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextTab = activeTab === "columns" ? "relationships" : "columns"
+                  setActiveTab(nextTab)
+                  if (nextTab === "relationships") {
+                    retryRelationships()
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
+              >
+                {activeTab === "columns" ? "Relationships" : "Columns"}
+                <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  {activeTab === "columns" ? filteredRelationships.length : filteredColumns.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="w-72">
+            {activeTab === "columns" ? (
+              <Input
+                placeholder="Search columns..."
+                value={columnSearch}
+                onChange={(e) => setColumnSearch(e.target.value)}
+              />
+            ) : (
+              <Input
+                placeholder="Search relationships..."
+                value={relationshipSearch}
+                onChange={(e) => setRelationshipSearch(e.target.value)}
+              />
+            )}
+          </div>
+        </div>
+
+        {activeTab === "columns" ? (
+          <div className="mt-4">
 	          {/* 列加载状态 */}
 	          {isLoadingColumns && (
 	            <div className="flex items-center justify-center p-10">
@@ -807,8 +932,289 @@ function TableDetail({
 	            </div>
 	          )}
 	        </div>
+        ) : (
+          <RelationshipsPanel
+            tableLogicalName={table.logicalName}
+            relationships={filteredRelationships}
+            relationshipCounts={relationshipCounts}
+            displayNameByLogicalName={tableDisplayNameByLogicalName}
+            openTableByLogicalName={openTableByLogicalName}
+            copyToClipboard={copyToClipboard}
+            copiedField={copiedField}
+            isLoading={isLoadingRelationships}
+            error={relationshipError}
+            onRetry={retryRelationships}
+          />
+        )}
 	    </motion.div>
 	  )
 	}
+
+function RelationshipKindBadge({ kind }: { kind: TableRelationship["kind"] }) {
+  if (kind === "OneToMany") return <Badge variant="success">1:N</Badge>
+  if (kind === "ManyToOne") return <Badge variant="warning">N:1</Badge>
+  return <Badge variant="secondary">N:N</Badge>
+}
+
+function RelationshipRow({
+  relationship,
+  resolveDisplayName,
+  openTableByLogicalName,
+  copyToClipboard,
+  copiedField,
+}: {
+  relationship: TableRelationship
+  resolveDisplayName: (logicalName: string) => string
+  openTableByLogicalName: (logicalName: string) => void
+  copyToClipboard: (text: string, field: string) => void
+  copiedField: string | null
+}) {
+  const relatedDisplayName = resolveDisplayName(relationship.relatedTableLogicalName)
+  const showLookupLabel =
+    relationship.kind === "OneToMany"
+      ? "Lookup column (on related table)"
+      : relationship.kind === "ManyToOne"
+        ? "Lookup column (on this table)"
+        : null
+
+  const lookupValue =
+    relationship.kind === "ManyToMany"
+      ? relationship.intersectEntityName
+      : relationship.referencingAttribute
+
+  const lookupSecondary =
+    relationship.kind === "ManyToMany"
+      ? "Intersect table"
+      : relationship.referencedAttribute
+        ? `→ ${relationship.referencedAttribute}`
+        : null
+
+  const schemaCopyKey = `relationship:schema:${relationship.schemaName}`
+
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card/30 px-4 py-3 shadow-sm transition-colors hover:bg-muted/20">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-foreground">
+              {relatedDisplayName}
+            </div>
+            <div className="truncate font-mono text-xs text-muted-foreground">
+              {relationship.relatedTableLogicalName}
+            </div>
+          </div>
+          <RelationshipKindBadge kind={relationship.kind} />
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="w-28 shrink-0 font-semibold uppercase tracking-wider text-muted-foreground">
+              Schema
+            </span>
+            <span className="truncate font-mono text-foreground">{relationship.schemaName}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="w-28 shrink-0 font-semibold uppercase tracking-wider text-muted-foreground">
+              {showLookupLabel ?? "Details"}
+            </span>
+            <span className="truncate font-mono text-foreground">
+              {lookupValue ?? "—"}
+              {lookupSecondary ? (
+                <span className="ml-2 text-muted-foreground">{lookupSecondary}</span>
+              ) : null}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openTableByLogicalName(relationship.relatedTableLogicalName)}
+        >
+          Open
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => void copyToClipboard(relationship.schemaName, schemaCopyKey)}
+          title="Copy schema name"
+        >
+          <Copy className="h-4 w-4" />
+        </Button>
+        {copiedField === schemaCopyKey && (
+          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            Copied
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RelationshipSection({
+  title,
+  subtitle,
+  items,
+  resolveDisplayName,
+  openTableByLogicalName,
+  copyToClipboard,
+  copiedField,
+}: {
+  title: string
+  subtitle: string
+  items: TableRelationship[]
+  resolveDisplayName: (logicalName: string) => string
+  openTableByLogicalName: (logicalName: string) => void
+  copyToClipboard: (text: string, field: string) => void
+  copiedField: string | null
+}) {
+  return (
+    <div className="mt-6">
+      <div className="mb-3 flex items-baseline justify-between gap-4">
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <span className="text-sm text-muted-foreground">
+            {items.length} {subtitle}
+          </span>
+        </div>
+      </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-border bg-muted/10 px-4 py-6 text-sm text-muted-foreground">
+          No items in this group.
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {items
+            .slice()
+            .sort((a, b) =>
+              resolveDisplayName(a.relatedTableLogicalName).localeCompare(
+                resolveDisplayName(b.relatedTableLogicalName)
+              )
+            )
+            .map((relationship) => (
+              <RelationshipRow
+                key={`${relationship.kind}:${relationship.schemaName}:${relationship.relatedTableLogicalName}`}
+                relationship={relationship}
+                resolveDisplayName={resolveDisplayName}
+                openTableByLogicalName={openTableByLogicalName}
+                copyToClipboard={copyToClipboard}
+                copiedField={copiedField}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RelationshipsPanel({
+  tableLogicalName,
+  relationships,
+  relationshipCounts,
+  displayNameByLogicalName,
+  openTableByLogicalName,
+  copyToClipboard,
+  copiedField,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  tableLogicalName: string
+  relationships: TableRelationship[]
+  relationshipCounts: { OneToMany: number; ManyToOne: number; ManyToMany: number }
+  displayNameByLogicalName: Record<string, string>
+  openTableByLogicalName: (logicalName: string) => void
+  copyToClipboard: (text: string, field: string) => void
+  copiedField: string | null
+  isLoading: boolean
+  error: string | null | undefined
+  onRetry: () => void
+}) {
+  const resolveDisplayName = (logicalName: string) =>
+    displayNameByLogicalName[logicalName.toLowerCase()] ?? logicalName
+
+  const oneToMany = relationships.filter((r) => r.kind === "OneToMany")
+  const manyToOne = relationships.filter((r) => r.kind === "ManyToOne")
+  const manyToMany = relationships.filter((r) => r.kind === "ManyToMany")
+
+  return (
+    <div className="mt-4">
+      <div className="flex flex-wrap gap-3">
+        <Badge variant="success" className="h-7 rounded-lg px-3">
+          1:N {relationshipCounts.OneToMany}
+        </Badge>
+        <Badge variant="warning" className="h-7 rounded-lg px-3">
+          N:1 {relationshipCounts.ManyToOne}
+        </Badge>
+        <Badge variant="secondary" className="h-7 rounded-lg px-3">
+          N:N {relationshipCounts.ManyToMany}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          Showing relationships connected to <span className="font-mono">{tableLogicalName}</span>
+        </span>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center p-10">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading relationships...
+          </div>
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="my-6 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !error && relationships.length === 0 && (
+        <div className="mt-6 rounded-xl border border-border bg-muted/10 px-4 py-10 text-center text-sm text-muted-foreground">
+          No relationships found for this table.
+        </div>
+      )}
+
+      {!isLoading && !error && relationships.length > 0 && (
+        <>
+          <RelationshipSection
+            title="Has many"
+            subtitle="relationships"
+            items={oneToMany}
+            resolveDisplayName={resolveDisplayName}
+            openTableByLogicalName={openTableByLogicalName}
+            copyToClipboard={copyToClipboard}
+            copiedField={copiedField}
+          />
+          <RelationshipSection
+            title="Belongs to"
+            subtitle="relationships"
+            items={manyToOne}
+            resolveDisplayName={resolveDisplayName}
+            openTableByLogicalName={openTableByLogicalName}
+            copyToClipboard={copyToClipboard}
+            copiedField={copiedField}
+          />
+          <RelationshipSection
+            title="Many-to-many"
+            subtitle="relationships"
+            items={manyToMany}
+            resolveDisplayName={resolveDisplayName}
+            openTableByLogicalName={openTableByLogicalName}
+            copyToClipboard={copyToClipboard}
+            copiedField={copiedField}
+          />
+        </>
+      )}
+    </div>
+  )
+}
 
 export default App

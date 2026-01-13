@@ -11,12 +11,26 @@ export interface TableColumn {
   lookupTargets?: string[]
 }
 
+export type RelationshipKind = 'OneToMany' | 'ManyToOne' | 'ManyToMany'
+
+export interface TableRelationship {
+  kind: RelationshipKind
+  schemaName: string
+  relatedTableLogicalName: string
+  referencingAttribute?: string
+  referencedAttribute?: string
+  intersectEntityName?: string
+  entity1LogicalName?: string
+  entity2LogicalName?: string
+}
+
 export interface TableEntity {
   displayName: string
   logicalName: string
   objectTypeCode: number
   isCustomEntity: boolean
   columns: TableColumn[]
+  relationships: TableRelationship[]
 }
 
 // 主题类型

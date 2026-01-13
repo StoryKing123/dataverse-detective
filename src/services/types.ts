@@ -75,6 +75,25 @@ export interface DataverseAttributesResponse {
   value: DataverseAttribute[]
 }
 
+export interface DataverseOneToManyRelationship {
+  SchemaName: string
+  ReferencingEntity: string
+  ReferencedEntity: string
+  ReferencingAttribute?: string
+  ReferencedAttribute?: string
+}
+
+export interface DataverseManyToManyRelationship {
+  SchemaName: string
+  Entity1LogicalName: string
+  Entity2LogicalName: string
+  IntersectEntityName?: string
+}
+
+export interface DataverseRelationshipsResponse<T> {
+  value: T[]
+}
+
 /**
  * 加载状态枚举
  */
@@ -88,6 +107,7 @@ export type LoadingStatus = 'idle' | 'loading' | 'success' | 'error'
 export interface LoadingState {
   tables: LoadingStatus
   columns: Record<string, LoadingStatus>
+  relationships: Record<string, LoadingStatus>
 }
 
 /**
@@ -98,4 +118,5 @@ export interface LoadingState {
 export interface ErrorState {
   tables: string | null
   columns: Record<string, string | null>
+  relationships: Record<string, string | null>
 }

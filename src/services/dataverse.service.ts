@@ -3,12 +3,15 @@
  * 负责所有与 Dataverse API 的交互
  */
 
-import type { TableEntity, TableColumn } from '../types'
+import type { TableEntity, TableColumn, TableRelationship } from '../types'
 import type {
   DataverseEntity,
   DataverseAttribute,
   DataverseEntitiesResponse,
   DataverseAttributesResponse,
+  DataverseOneToManyRelationship,
+  DataverseManyToManyRelationship,
+  DataverseRelationshipsResponse,
 } from './types'
 import {
   DATAVERSE_API_BASE_PATH,
@@ -77,6 +80,7 @@ function mapEntityResponse(entity: DataverseEntity): TableEntity {
     objectTypeCode: entity.ObjectTypeCode,
     isCustomEntity: entity.IsCustomEntity,
     columns: [], // 初始不包含 columns，懒加载时再填充
+    relationships: [], // 初始不包含 relationships，懒加载时再填充
   }
 }
 
@@ -324,6 +328,86 @@ export async function fetchEntityColumns(logicalName: string): Promise<TableColu
     })
 
     return validAttributes.map(mapAttributeResponse)
+  } catch (error) {
+    throw new Error(handleFetchError(error))
+  }
+}
+
+function mapOneToManyRelationshipResponse(
+  relationship: DataverseOneToManyRelationship
+): Omit<TableRelationship, 'kind' | 'relatedTableLogicalName'> {
+  return {
+    schemaName: relationship.SchemaName,
+    referencingAttribute: relationship.ReferencingAttribute,
+    referencedAttribute: relationship.ReferencedAttribute,
+  }
+}
+
+export async function fetchEntityRelationships(logicalName: string): Promise<TableRelationship[]> {
+  try {
+    const encodedName = encodeURIComponent(logicalName)
+    const base = `${DATAVERSE_API_BASE_PATH}/EntityDefinitions(LogicalName='${encodedName}')`
+
+    const oneToManyUrl =
+      `${base}/OneToManyRelationships?$select=SchemaName,ReferencingEntity,ReferencedEntity,ReferencingAttribute,ReferencedAttribute`
+    const manyToOneUrl =
+      `${base}/ManyToOneRelationships?$select=SchemaName,ReferencingEntity,ReferencedEntity,ReferencingAttribute,ReferencedAttribute`
+    const manyToManyUrl =
+      `${base}/ManyToManyRelationships?$select=SchemaName,Entity1LogicalName,Entity2LogicalName,IntersectEntityName`
+
+    const [oneToMany, manyToOne, manyToMany] = await Promise.all([
+      fetchWithTimeout(oneToManyUrl).then((r) => r.json() as Promise<DataverseRelationshipsResponse<DataverseOneToManyRelationship>>),
+      fetchWithTimeout(manyToOneUrl).then((r) => r.json() as Promise<DataverseRelationshipsResponse<DataverseOneToManyRelationship>>),
+      fetchWithTimeout(manyToManyUrl).then((r) => r.json() as Promise<DataverseRelationshipsResponse<DataverseManyToManyRelationship>>),
+    ])
+
+    const normalizedCurrent = logicalName.toLowerCase()
+    const results: TableRelationship[] = []
+    const seen = new Set<string>()
+
+    for (const rel of oneToMany.value ?? []) {
+      const relatedTableLogicalName = rel.ReferencingEntity
+      const key = `OneToMany:${rel.SchemaName}:${relatedTableLogicalName}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      results.push({
+        kind: 'OneToMany',
+        relatedTableLogicalName,
+        ...mapOneToManyRelationshipResponse(rel),
+      })
+    }
+
+    for (const rel of manyToOne.value ?? []) {
+      const relatedTableLogicalName = rel.ReferencedEntity
+      const key = `ManyToOne:${rel.SchemaName}:${relatedTableLogicalName}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      results.push({
+        kind: 'ManyToOne',
+        relatedTableLogicalName,
+        ...mapOneToManyRelationshipResponse(rel),
+      })
+    }
+
+    for (const rel of manyToMany.value ?? []) {
+      const entity1 = rel.Entity1LogicalName
+      const entity2 = rel.Entity2LogicalName
+      const relatedTableLogicalName =
+        entity1.toLowerCase() === normalizedCurrent ? entity2 : entity1
+      const key = `ManyToMany:${rel.SchemaName}:${relatedTableLogicalName}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      results.push({
+        kind: 'ManyToMany',
+        schemaName: rel.SchemaName,
+        relatedTableLogicalName,
+        intersectEntityName: rel.IntersectEntityName,
+        entity1LogicalName: entity1,
+        entity2LogicalName: entity2,
+      })
+    }
+
+    return results
   } catch (error) {
     throw new Error(handleFetchError(error))
   }
