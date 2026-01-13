@@ -6,6 +6,7 @@ import {
 	  Moon,
 	  Sun,
 	  LayoutGrid,
+	  Maximize2,
 	  ChevronRight,
 	  Copy,
 	  Loader2,
@@ -20,6 +21,9 @@ import { useDataverse } from "@/hooks/useDataverse"
 import { useUrlParams } from "@/hooks/useUrlParams"
 import { buildViewUrl, buildDataverseEditUrl } from "@/services/url.utils"
 import { fetchChoiceOptions, getEnvironmentId } from "@/services/dataverse.service"
+import { MermaidDiagram } from "@/components/MermaidDiagram"
+import { buildMermaidErDiagram } from "@/lib/mermaidEr"
+import { ErDiagramModal } from "@/components/ErDiagramModal"
 
 const TABLE_LIST_RENDER_LIMIT = 200
 
@@ -314,6 +318,7 @@ function App() {
               <TableDetail
                 key={currentTable.logicalName}
                 table={currentTable}
+                theme={theme}
                 columnSearch={columnSearch}
                 setColumnSearch={setColumnSearch}
                 filteredColumns={filteredColumns}
@@ -414,6 +419,7 @@ function EmptyState({ tableCount }: { tableCount: number }) {
 // 表详情组件
 interface TableDetailProps {
   table: TableEntity
+  theme: Theme
   columnSearch: string
   setColumnSearch: (value: string) => void
   filteredColumns: TableColumn[]
@@ -435,6 +441,7 @@ interface TableDetailProps {
 
 function TableDetail({
   table,
+  theme,
   columnSearch,
   setColumnSearch,
   filteredColumns,
@@ -468,13 +475,13 @@ function TableDetail({
 
     const relationshipCounts = useMemo(() => {
       const counts = { OneToMany: 0, ManyToOne: 0, ManyToMany: 0 }
-      for (const rel of filteredRelationships) {
+      for (const rel of table.relationships ?? []) {
         if (rel.kind === "OneToMany") counts.OneToMany += 1
         else if (rel.kind === "ManyToOne") counts.ManyToOne += 1
         else if (rel.kind === "ManyToMany") counts.ManyToMany += 1
       }
       return counts
-    }, [filteredRelationships])
+    }, [table.relationships])
 
     const isChoiceType = (type: string) =>
       type === "Picklist" || type === "State" || type === "Status" || type === "MultiSelectPicklist"
@@ -936,11 +943,14 @@ function TableDetail({
           <RelationshipsPanel
             tableLogicalName={table.logicalName}
             relationships={filteredRelationships}
+            allRelationships={table.relationships ?? []}
+            tableColumns={table.columns}
             relationshipCounts={relationshipCounts}
             displayNameByLogicalName={tableDisplayNameByLogicalName}
             openTableByLogicalName={openTableByLogicalName}
             copyToClipboard={copyToClipboard}
             copiedField={copiedField}
+            theme={theme}
             isLoading={isLoadingRelationships}
             error={relationshipError}
             onRetry={retryRelationships}
@@ -1112,22 +1122,28 @@ function RelationshipSection({
 function RelationshipsPanel({
   tableLogicalName,
   relationships,
+  allRelationships,
+  tableColumns,
   relationshipCounts,
   displayNameByLogicalName,
   openTableByLogicalName,
   copyToClipboard,
   copiedField,
+  theme,
   isLoading,
   error,
   onRetry,
 }: {
   tableLogicalName: string
   relationships: TableRelationship[]
+  allRelationships: TableRelationship[]
+  tableColumns: TableColumn[]
   relationshipCounts: { OneToMany: number; ManyToOne: number; ManyToMany: number }
   displayNameByLogicalName: Record<string, string>
   openTableByLogicalName: (logicalName: string) => void
   copyToClipboard: (text: string, field: string) => void
   copiedField: string | null
+  theme: Theme
   isLoading: boolean
   error: string | null | undefined
   onRetry: () => void
@@ -1135,12 +1151,71 @@ function RelationshipsPanel({
   const resolveDisplayName = (logicalName: string) =>
     displayNameByLogicalName[logicalName.toLowerCase()] ?? logicalName
 
+  const [isErDiagramOpen, setIsErDiagramOpen] = useState(false)
+
+  const erDiagram = useMemo(
+    () =>
+      buildMermaidErDiagram({
+        tableLogicalName,
+        columns: tableColumns,
+        relationships: allRelationships,
+      }),
+    [allRelationships, tableColumns, tableLogicalName]
+  )
+
+  const diagramCopyKey = `relationship:er:${tableLogicalName}`
+
   const oneToMany = relationships.filter((r) => r.kind === "OneToMany")
   const manyToOne = relationships.filter((r) => r.kind === "ManyToOne")
   const manyToMany = relationships.filter((r) => r.kind === "ManyToMany")
 
   return (
     <div className="mt-4">
+      {!isLoading && !error && (
+        <div className="mb-6 rounded-xl border border-border bg-card/30 p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground">ER diagram</div>
+              <div className="text-xs text-muted-foreground">
+                Omits {erDiagram.omittedRelationshipCount} system relationships and {erDiagram.omittedColumnCount} system columns.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void copyToClipboard(erDiagram.code, diagramCopyKey)}
+              >
+                Copy Mermaid
+              </Button>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setIsErDiagramOpen(true)}
+                title="Expand ER diagram"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+              {copiedField === diagramCopyKey && (
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  Copied
+                </span>
+              )}
+            </div>
+          </div>
+          <MermaidDiagram code={erDiagram.code} theme={theme} />
+        </div>
+      )}
+
+      <ErDiagramModal
+        open={isErDiagramOpen}
+        onClose={() => setIsErDiagramOpen(false)}
+        title={`${resolveDisplayName(tableLogicalName)} (${tableLogicalName})`}
+        code={erDiagram.code}
+        theme={theme}
+        onCopy={() => void copyToClipboard(erDiagram.code, diagramCopyKey)}
+      />
+
       <div className="flex flex-wrap gap-3">
         <Badge variant="success" className="h-7 rounded-lg px-3">
           1:N {relationshipCounts.OneToMany}
