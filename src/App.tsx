@@ -289,58 +289,60 @@ function EmptyState({ tableCount }: { tableCount: number }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex h-full flex-col items-center justify-center bg-background"
+      className="empty-state-frosted flex h-full items-center justify-center"
     >
-      <motion.div
-        initial={false}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.4, type: "spring" }}
-        className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card text-card-foreground shadow-sm"
-      >
-        <LayoutGrid className="h-10 w-10 text-violet-500" />
-      </motion.div>
+      <div className="relative z-10 flex flex-col items-center">
+        <motion.div
+          initial={false}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.4, type: "spring" }}
+          className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-border bg-card text-card-foreground shadow-sm"
+        >
+          <LayoutGrid className="h-10 w-10 text-violet-500" />
+        </motion.div>
 
-      <motion.h1
-        initial={false}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.4 }}
-        className="mb-3 text-3xl font-bold text-foreground"
-      >
-        Entity Metadata Explorer
-      </motion.h1>
+        <motion.h1
+          initial={false}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+          className="mb-3 text-3xl font-bold text-foreground"
+        >
+          Entity Metadata Explorer
+        </motion.h1>
 
-      <motion.p
-        initial={false}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.4 }}
-        className="mb-10 max-w-md text-center text-muted-foreground"
-      >
-        Select a table from the sidebar to inspect its schema, verify data types, and access deep links to Dynamics 365 views.
-      </motion.p>
+        <motion.p
+          initial={false}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="mb-10 max-w-md text-center text-muted-foreground"
+        >
+          Select a table from the sidebar to inspect its schema, verify data types, and access deep links to Dynamics 365 views.
+        </motion.p>
 
-      <motion.div
-        initial={false}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.4 }}
-        className="flex gap-4"
-      >
-        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
-          <span className="text-2xl font-bold text-foreground">
-            {tableCount}
-          </span>
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Tables Indexed
-          </span>
-        </div>
-        <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
-          <span className="text-2xl font-bold text-foreground">
-            Instant
-          </span>
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Search
-          </span>
-        </div>
-      </motion.div>
+        <motion.div
+          initial={false}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+          className="flex gap-4"
+        >
+          <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
+            <span className="text-2xl font-bold text-foreground">
+              {tableCount}
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Tables Indexed
+            </span>
+          </div>
+          <div className="flex flex-col items-center rounded-xl border border-border bg-card px-10 py-5 text-card-foreground shadow-sm">
+            <span className="text-2xl font-bold text-foreground">
+              Instant
+            </span>
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Search
+            </span>
+          </div>
+        </motion.div>
+      </div>
     </motion.div>
   )
 }
