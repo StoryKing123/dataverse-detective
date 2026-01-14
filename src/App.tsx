@@ -102,6 +102,14 @@ function App() {
     return result
   }, [tables])
 
+  const tableIsCustomByLogicalName = useMemo(() => {
+    const result: Record<string, boolean> = {}
+    for (const table of tables) {
+      result[table.logicalName.toLowerCase()] = table.isCustomEntity
+    }
+    return result
+  }, [tables])
+
   // 过滤列
   const filteredColumns = useMemo(() => {
     if (!currentTable) return []
@@ -328,6 +336,7 @@ function App() {
                 setRelationshipSearch={setRelationshipSearch}
                 filteredRelationships={filteredRelationships}
                 tableDisplayNameByLogicalName={tableDisplayNameByLogicalName}
+                tableIsCustomByLogicalName={tableIsCustomByLogicalName}
                 openTableByLogicalName={(logicalName) => {
                   const targetTable = tables.find((t) => t.logicalName.toLowerCase() === logicalName.toLowerCase())
                   if (targetTable) {
@@ -429,6 +438,7 @@ interface TableDetailProps {
   setRelationshipSearch: (value: string) => void
   filteredRelationships: TableRelationship[]
   tableDisplayNameByLogicalName: Record<string, string>
+  tableIsCustomByLogicalName: Record<string, boolean>
   openTableByLogicalName: (logicalName: string) => void
   copyToClipboard: (text: string, field: string) => void
   copiedField: string | null
@@ -451,6 +461,7 @@ function TableDetail({
   setRelationshipSearch,
   filteredRelationships,
   tableDisplayNameByLogicalName,
+  tableIsCustomByLogicalName,
   openTableByLogicalName,
   copyToClipboard,
   copiedField,
@@ -659,9 +670,6 @@ function TableDetail({
                 className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground"
               >
                 {activeTab === "columns" ? "Relationships" : "Columns"}
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                  {activeTab === "columns" ? filteredRelationships.length : filteredColumns.length}
-                </span>
               </button>
             </div>
           </div>
@@ -947,6 +955,7 @@ function TableDetail({
             tableColumns={table.columns}
             relationshipCounts={relationshipCounts}
             displayNameByLogicalName={tableDisplayNameByLogicalName}
+            isCustomByLogicalName={tableIsCustomByLogicalName}
             openTableByLogicalName={openTableByLogicalName}
             copyToClipboard={copyToClipboard}
             copiedField={copiedField}
@@ -1126,6 +1135,7 @@ function RelationshipsPanel({
   tableColumns,
   relationshipCounts,
   displayNameByLogicalName,
+  isCustomByLogicalName,
   openTableByLogicalName,
   copyToClipboard,
   copiedField,
@@ -1140,6 +1150,7 @@ function RelationshipsPanel({
   tableColumns: TableColumn[]
   relationshipCounts: { OneToMany: number; ManyToOne: number; ManyToMany: number }
   displayNameByLogicalName: Record<string, string>
+  isCustomByLogicalName: Record<string, boolean>
   openTableByLogicalName: (logicalName: string) => void
   copyToClipboard: (text: string, field: string) => void
   copiedField: string | null
@@ -1159,8 +1170,9 @@ function RelationshipsPanel({
         tableLogicalName,
         columns: tableColumns,
         relationships: allRelationships,
+        isCustomByLogicalName,
       }),
-    [allRelationships, tableColumns, tableLogicalName]
+    [allRelationships, isCustomByLogicalName, tableColumns, tableLogicalName]
   )
 
   const diagramCopyKey = `relationship:er:${tableLogicalName}`
