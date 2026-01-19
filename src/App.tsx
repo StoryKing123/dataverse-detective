@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
+import { filterTables } from "@/lib/search.utils"
 import type { TableEntity, TableColumn, TableRelationship, Theme } from "./types"
 import { useDataverse } from "@/hooks/useDataverse"
 import { useUrlParams } from "@/hooks/useUrlParams"
@@ -72,13 +73,7 @@ function App() {
 
   // 过滤表列表
   const filteredTables = useMemo(() => {
-    if (!searchQuery.trim()) return tables
-    const query = searchQuery.toLowerCase()
-    return tables.filter(
-      (t) =>
-        t.displayName.toLowerCase().includes(query) ||
-        t.logicalName.toLowerCase().includes(query)
-    )
+    return filterTables(tables, searchQuery)
   }, [searchQuery, tables])
 
   const visibleTables = useMemo(
